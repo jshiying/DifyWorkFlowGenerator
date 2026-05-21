@@ -95,7 +95,7 @@ model_config:
     \ tanbun\n                label: 短文\n                required: true\n        \
     \        max_length: 48\n                options: []\n\n\n          llm_node:\n\
     \            - id: 唯一ID\n            - type: llm\n            - model:\n  \
-    \            - provider: openai\n              - name: gpt-4o\n              -\
+    \            - provider: openai\n              - name: gpt-5.4\n              -\
     \ mode: chat\n              - completion_params:\n                - temperature:\
     \ 生成时的温度设置\n            - prompt_template:\n              - id: 唯一ID（例'prompt1'）\n\
     \                role: system\n                text: 用单引号括住的提示词文本\n    \
@@ -125,7 +125,7 @@ model_config:
     \         value: [要提取的JSON键]\n\n\n          question_classifier_node:\n    \
     \        - id: 唯一ID\n            - type: question-classifier\n            -\
     \ data:\n              - title: 问题分类器\n              - model:\n              \
-    \    provider: openai\n                  name: gpt-4o\n                  mode:\
+    \    provider: openai\n                  name: gpt-5.4\n                  mode:\
     \ chat\n                  completion_params:\n                    temperature:\
     \ 0.7\n              - query_variable_selector:\n                  - [输入节点ID]\n\
     \                  - [变量名]\n              - classes:\n                  - id:\
@@ -253,7 +253,7 @@ model_config:
     \ - options: 选项（可选）\n\n\n      2. LLM节点\n         使用场景:\n         - 文本生成和响应创建\n\
     \         - 输入文本的加工和转换\n         - 生成问题的回答\n         结构:\n         - id: 唯一ID（必填）\n\
     \         - type: llm（固定）\n         - model:（必填）\n           - provider: openai（固定）\n\
-    \           - name: gpt-4o（固定）\n           - mode: chat（固定）\n           - completion_params:\n\
+    \           - name: gpt-5.4（固定）\n           - mode: chat（固定）\n           - completion_params:\n\
     \             - temperature: 0.0-1.0的值（必填）\n         - prompt_template:（必填）\n\
     \           - role: system（固定）\n           - text: 提示词文本（必填）\n         - context:（必填）\n\
     \           - enabled: true（固定）\n           - variable_selector: 指定要使用的变量（必填）\n\
@@ -305,7 +305,7 @@ model_config:
     \        - 控制多路径处理\n\n\n         结构:\n         - id: 唯一ID（必填）\n        \
     \ - type: question-classifier（固定）\n         - data:（必填）\n           - title: 节点标题（必填）\n\
     \           - model:（必填）\n             - provider: openai（固定）\n             -\
-    \ name: gpt-4o（固定）\n             - mode: chat（固定）\n             - completion_params:（必填）\n\
+    \ name: gpt-5.4（固定）\n             - mode: chat（固定）\n             - completion_params:（必填）\n\
     \               - temperature: 0.0-1.0的值\n           - query_variable_selector:（必填）\n\
     \             - [输入节点ID]\n             - [变量名]\n           - classes:（必填）\n \
     \            - id: 类别ID（必填）\n             - name: 分类名（必填）\n\n\n         注意事项:\n\
@@ -533,7 +533,7 @@ model_config:
     \                    required: true\n                    max_length: [最大字数]\n\
     \n\n            - id: [LLM节点ID]\n              data:\n                type: llm\n\
     \                title: LLM\n                model:\n                  provider:\
-    \ openai\n                  name: gpt-4o\n                  mode: chat\n     \
+    \ openai\n                  name: gpt-5.4\n                  mode: chat\n     \
     \             completion_params:\n                    temperature: 0.7\n     \
     \           prompt_template:\n                  - id: [提示词ID]\n            \
     \        role: system\n                    text: '[提示词文本]'\n             \
@@ -568,7 +568,7 @@ model_config:
     \         value: [要提取的JSON键]\n\n\n            - id: [问题分类器节点ID]\n         \
     \     data:\n                type: question-classifier\n                title:\
     \ 问题分类器\n                model:\n                  provider: openai\n        \
-    \          name: gpt-4o\n                  mode: chat\n                  completion_params:\n\
+    \          name: gpt-5.4\n                  mode: chat\n                  completion_params:\n\
     \                    temperature: 0.7\n                query_variable_selector:\n\
     \                  - [输入节点ID]\n                  - [变量名]\n                classes:\n\
     \                  - id: '1'\n                    name: [分类名1]\n             \
