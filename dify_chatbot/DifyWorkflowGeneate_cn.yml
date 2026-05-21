@@ -99,8 +99,7 @@ model_config:
     \ mode: chat\n              - completion_params:\n                - temperature:\
     \ 生成时的温度设置\n            - prompt_template:\n              - id: 唯一ID（例'prompt1'）\n\
     \                role: system\n                text: 用单引号括住的提示词文本\n    \
-    \        - context:\n              - enabled: true\n              - variable_selector:\
-    \ 指定要使用的变量\n            - vision:\n              - enabled: false\n\n\n     \
+    \        - context: # 仅当上游有 knowledge-retrieval 节点时启用，否则设为 disabled\n              - enabled: true/false  # 有知识库节点时为true，否则为false\n              - variable_selector: 仅在 enabled: true 时指向 knowledge-retrieval 节点的输出（否则设为[]）\n            - vision:\n              - enabled: false\n\n\n     \
     \     end_node:\n            - id: 唯一ID\n            - type: end\n        \
     \    - outputs: #输出变量的定义\n              - input_data: 输入数据\n              - generated_text:\
     \ 生成的文本\n\n\n          http_request_node:\n            - id: 唯一ID\n   \
@@ -255,11 +254,11 @@ model_config:
     \         - type: llm（固定）\n         - model:（必填）\n           - provider: openai（固定）\n\
     \           - name: gpt-5.4（固定）\n           - mode: chat（固定）\n           - completion_params:\n\
     \             - temperature: 0.0-1.0的值（必填）\n         - prompt_template:（必填）\n\
-    \           - role: system（固定）\n           - text: 提示词文本（必填）\n         - context:（必填）\n\
-    \           - enabled: true（固定）\n           - variable_selector: 指定要使用的变量（必填）\n\
+    \           - role: system（固定）\n           - text: 提示词文本（必填）\n         - context:（条件可选）\n\
+    \           - enabled: true/false\n             - true：当上游存在 knowledge-retrieval 节点时使用\n             - false：无知识库节点时设为 false，variable_selector 设为 []\n           - variable_selector: 指向上游 knowledge-retrieval 节点的输出（enabled 为 false 时设为 []）\n\
     \         - vision:\n           - enabled: false（固定）\n         注意事项:\n       \
     \  - 提示词必须用单引号括住\n         - 只能使用系统角色的提示词\n         - 变量引用格式:\
-    \ {{#节点ID.变量名#}}\n         \n      3. 结束节点\n         使用场景:\n         - 作为工作流的结束点\n\
+    \ {{#节点ID.变量名#}}\n         - 普通变量传递：直接在 prompt_template.text 中用 {{#节点ID.变量名#}} 引用，无需通过 context 传入\n         - context 专用于知识库：仅当上游有 knowledge-retrieval 节点时，enabled 设为 true，variable_selector 指向该节点输出\n         - 无知识库时：context.enabled 设为 false，variable_selector 设为 []\n         \n      3. 结束节点\n         使用场景:\n         - 作为工作流的结束点\n\
     \         - 定义处理结果的输出\n         - 向后续系统传递数据\n\n\n         结构:\n       \
     \  - id: 唯一ID（必填）\n         - type: end（固定）\n         - outputs:（必填）\n    \
     \       - value_selector:（必填）\n             - [节点ID]\n             - [变量名]\n\
@@ -537,8 +536,7 @@ model_config:
     \             completion_params:\n                    temperature: 0.7\n     \
     \           prompt_template:\n                  - id: [提示词ID]\n            \
     \        role: system\n                    text: '[提示词文本]'\n             \
-    \   context:\n                  enabled: true\n                  variable_selector:\n\
-    \                    - [开始节点ID]\n                    - [变量名]\n              \
+    \   context:\n                  enabled: false  # 无知识库节点时设为 false，variable_selector 设为 []\n                  variable_selector: []\n                  # 若上游有 knowledge-retrieval 节点，则改为：\n                  # enabled: true\n                  # variable_selector:\n                  #   - [knowledge-retrieval节点ID]\n                  #   - result\n              \
     \  vision:\n                  enabled: false\n            - id: [结束节点ID]\n  \
     \            data:\n                type: end\n                title: 结束\n   \
     \             outputs:\n                  - value_selector:\n                \

@@ -122,9 +122,9 @@ prompt:
               - id: 唯一ID（例'prompt1'）
                 role: system
                 text: 用单引号括住的提示词文本
-            - context:
-              - enabled: true
-              - variable_selector: 指定要使用的变量
+            - context: # 仅当上游有 knowledge-retrieval 节点时启用，否则设为 disabled
+              - enabled: true/false  # 有知识库节点时为true，否则为false
+              - variable_selector: 仅在 enabled: true 时指向 knowledge-retrieval 节点的输出（否则设为[]）
             - vision:
               - enabled: false
 
@@ -483,16 +483,20 @@ prompt:
          - prompt_template:（必填）
            - role: system（固定）
            - text: 提示词文本（必填）
-         - context:（必填）
-           - enabled: true（固定）
-           - variable_selector: 指定要使用的变量（必填）
+         - context:（条件可选）
+           - enabled: true/false
+             - true：当上游存在 knowledge-retrieval 节点时使用
+             - false：无知识库节点时设为 false，variable_selector 设为 []
+           - variable_selector: 指向上游 knowledge-retrieval 节点的输出（enabled 为 false 时设为 []）
          - vision:
            - enabled: false（固定）
          注意事项:
          - 提示词必须用单引号括住
          - 只能使用系统角色的提示词
          - 变量引用格式: {{#节点ID.变量名#}}
-         - context的variable_selector中指定的变量，也请在prompt_template的text中使用。
+         - 普通变量传递：直接在 prompt_template.text 中用 {{#节点ID.变量名#}} 引用，无需通过 context 传入
+         - context 专用于知识库：仅当上游有 knowledge-retrieval 节点时，enabled 设为 true，variable_selector 指向该节点输出
+         - 无知识库时：context.enabled 设为 false，variable_selector 设为 []
          
       3. 结束节点
          使用场景:
@@ -1286,10 +1290,13 @@ prompt:
                     role: system
                     text: '[提示词文本]'
                 context:
-                  enabled: true
-                  variable_selector:
-                    - [开始节点ID]
-                    - [变量名]
+                  enabled: false  # 无知识库节点时设为 false，variable_selector 设为 []
+                  variable_selector: []
+                  # 若上游有 knowledge-retrieval 节点，则改为：
+                  # enabled: true
+                  # variable_selector:
+                  #   - [knowledge-retrieval节点ID]
+                  #   - result
                 vision:
                   enabled: false
             - id: [结束节点ID]
