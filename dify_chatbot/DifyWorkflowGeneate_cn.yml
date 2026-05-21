@@ -1,0 +1,695 @@
+app:
+  description: 这是用于生成Dify工作流的提示词。
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: chat
+  name: Dify工作流生成提示词
+  use_icon_as_answer_icon: false
+kind: app
+model_config:
+  agent_mode:
+    enabled: false
+    max_iteration: 5
+    strategy: function_call
+    tools: []
+  annotation_reply:
+    enabled: false
+  chat_prompt_config: {}
+  completion_prompt_config: {}
+  dataset_configs:
+    datasets:
+      datasets: []
+    reranking_enable: true
+    retrieval_model: multiple
+    top_k: 4
+  dataset_query_variable: ''
+  external_data_tools: []
+  file_upload:
+    allowed_file_extensions:
+    - .JPG
+    - .JPEG
+    - .PNG
+    - .GIF
+    - .WEBP
+    - .SVG
+    allowed_file_types:
+    - image
+    allowed_file_upload_methods:
+    - remote_url
+    - local_file
+    enabled: false
+    image:
+      detail: high
+      enabled: false
+      number_limits: 3
+      transfer_methods:
+      - remote_url
+      - local_file
+    number_limits: 3
+  model:
+    completion_params:
+      stop: []
+    mode: chat
+    name: gpt-5.4
+    provider: openai
+  more_like_this:
+    enabled: false
+  opening_statement: ''
+  pre_prompt: "prompt:\n  metadata:\n    title: Dify工作流生成提示词\n    version: 1.0.0\n\
+    \    description: 用于生成Dify工作流文件的提示词定义\n\n\n  input_requirements: |\n\
+    \    请提供以下信息：\n    1. 工作流的目的（例：书籍摘要生成、商品描述创作等）\n    2. 作为输入所需的信息（例：书名、商品名称与特征等）\n\
+    \    3. 作为输出所期望的格式和内容\n    4. 特殊约束条件（字数限制、语气指定等）\n\n\n  instructions:\n\
+    \    workflow_overview: |\n      根据所提供的需求，生成包含以下要素的Dify工作流文件（YAML格式）：\n\
+    \      - 由3个节点（开始、LLM、结束）构成的简单工作流\n      - 节点间按顺序执行连接\n      - 自动化从输入到输出的一系列处理\n\
+    \n\n    required_structure:\n      app_info:\n        - mode: 指定为workflow\n  \
+    \      - name: 设置体现目的的名称\n        - version: 使用0.1.3\n\n\n      workflow_graph:\n\
+    \        edges:\n          - source: 开始节点的ID（例：'1731228343114'）\n           \
+    \ target: LLM节点的ID（例：'1731229438627'）\n            data:\n              sourceType:\
+    \ start\n              targetType: llm\n          - source: LLM节点的ID（例：'1731229438627'）\n\
+    \            target: 结束节点的ID（例：'1731228345560'）\n            data:\n        \
+    \      sourceType: llm\n              targetType: end\n          - source: 问题分类器节点的ID\n\
+    \            sourceHandle: '1'  # 用于问题分类1\n            target: 目标节点ID1\n  \
+    \          targetHandle: target\n            data:\n              sourceType:\
+    \ question-classifier\n              targetType: [目标节点类型]\n          - source:\
+    \ 问题分类器节点的ID\n            sourceHandle: '2'  # 用于问题分类2\n            target: 目标节点ID2\n\
+    \            targetHandle: target\n            data:\n              sourceType:\
+    \ question-classifier\n              targetType: [目标节点类型]\n          - source:\
+    \ [IF/ELSE节点ID]\n            target: [目标节点ID]\n            data:\n      \
+    \        sourceType: if-else\n              targetType: [目标节点类型]\n      \
+    \      sourceHandle: 'true'  # IF条件成立时\n          - source: [IF/ELSE节点ID]\n \
+    \           target: [另一个目标节点ID]\n            data:\n              sourceType:\
+    \ if-else\n              targetType: [目标节点类型]\n            sourceHandle:\
+    \ 'false'  # ELSE条件时\n\n\n        nodes:\n          start_node:\n            -\
+    \ id: 唯一ID\n            - type: start\n            - variables:\n         \
+    \     # 文件输入的示例\n              - type: file\n                variable: input_document\n\
+    \                label: 文档\n                required: true\n             \
+    \   max_length: 48\n                allowed_file_types:\n                  - document\n\
+    \                allowed_file_upload_methods:\n                  - local_file\n\
+    \                  - remote_url\n\n\n              # 数值输入的示例\n              - type:\
+    \ number\n                variable: input_number\n                label: 数值\n\
+    \                required: true\n                min: 0\n                max:\
+    \ 1000000\n\n\n              # 段落输入的示例\n              - type: paragraph\n     \
+    \           variable: danraku\n                label: 段落\n                required:\
+    \ true\n                max_length: 48\n                options: []\n\n\n    \
+    \          # 短文输入的示例\n              - type: text-input\n                variable:\
+    \ tanbun\n                label: 短文\n                required: true\n        \
+    \        max_length: 48\n                options: []\n\n\n          llm_node:\n\
+    \            - id: 唯一ID\n            - type: llm\n            - model:\n  \
+    \            - provider: openai\n              - name: gpt-4o\n              -\
+    \ mode: chat\n              - completion_params:\n                - temperature:\
+    \ 生成时的温度设置\n            - prompt_template:\n              - id: 唯一ID（例'prompt1'）\n\
+    \                role: system\n                text: 用单引号括住的提示词文本\n    \
+    \        - context:\n              - enabled: true\n              - variable_selector:\
+    \ 指定要使用的变量\n            - vision:\n              - enabled: false\n\n\n     \
+    \     end_node:\n            - id: 唯一ID\n            - type: end\n        \
+    \    - outputs: #输出变量的定义\n              - input_data: 输入数据\n              - generated_text:\
+    \ 生成的文本\n\n\n          http_request_node:\n            - id: 唯一ID\n   \
+    \         - type: http-request\n            - data:\n              - authorization:\n\
+    \                  config: null\n                  type: no-auth/basic/bearer\
+    \  # 指定认证类型\n              - body:\n                  type: json/form-data/x-www-form-urlencoded\n\
+    \                  data:  # JSON格式的示例\n                    - id: [键值ID]\n\
+    \                      key: [键名]\n                      type: text\n        \
+    \              value: [JSON格式的值]\n              - headers: Content-Type:[content-type]\
+    \  # 例：application/json\n              - method: get/post/put/delete\n       \
+    \       - url: [API端点URL]\n              - timeout:\n                  max_connect_timeout:\
+    \ [连接超时秒数]\n                  max_read_timeout: [读取超时秒数]\n         \
+    \         max_write_timeout: [写入超时秒数]\n              - title: HTTP请求\n\
+    \              - variables: []  # 根据需要定义变量\n\n\n          json_parse_node:\n\
+    \            - id: 唯一ID\n            - type: tool\n            - data:\n  \
+    \            - provider_id: json_process\n              - provider_name: json_process\n\
+    \              - provider_type: builtin\n              - title: JSON Parse\n \
+    \             - tool_configurations:\n                  ensure_ascii: 1\n    \
+    \          - tool_name: parse\n              - tool_parameters:\n            \
+    \      content:\n                    type: mixed\n                    value: '{{#[输入节点ID].[变量名]#}}'\n\
+    \                  json_filter:\n                    type: mixed\n           \
+    \         value: [要提取的JSON键]\n\n\n          question_classifier_node:\n    \
+    \        - id: 唯一ID\n            - type: question-classifier\n            -\
+    \ data:\n              - title: 问题分类器\n              - model:\n              \
+    \    provider: openai\n                  name: gpt-4o\n                  mode:\
+    \ chat\n                  completion_params:\n                    temperature:\
+    \ 0.7\n              - query_variable_selector:\n                  - [输入节点ID]\n\
+    \                  - [变量名]\n              - classes:\n                  - id:\
+    \ [类别ID]\n                    name: [分类名]\n\n\n          knowledge_retrieval_node:\n\
+    \            - id: 唯一ID\n            - type: knowledge-retrieval\n        \
+    \    - data:\n              - title: 知识获取\n              - dataset_ids:\n    \
+    \              - [数据集ID]\n              - retrieval_mode: multiple\n      \
+    \        - multiple_retrieval_config:\n                  reranking_enable: true\n\
+    \                  reranking_mode: weighted_score\n                  top_k: 4\n\
+    \                  weights:\n                    vector_setting:\n           \
+    \           embedding_model_name: text-embedding-3-large\n                   \
+    \   embedding_provider_name: openai\n                      vector_weight: 1\n\
+    \                    keyword_setting:\n                      keyword_weight: 0\n\
+    \              - query_variable_selector:\n                  - [输入节点ID]\n   \
+    \               - [变量名]\n\n\n          code_node:\n            - id: 唯一ID\n\
+    \            - type: code\n            - data:\n              - code_language:\
+    \ python3\n              - code: \"def main(arg1: str) -> dict:\\nreturn {\\n\\\
+    \"task_url\\\": \\\"http://example.com/task/\\\"+arg1,\\n}\" # 编写Python代码并用双引号括住。\n\
+    \              - title: Python代码执行\n              - variables: []  # 根据需要定义变量\n\
+    \              - outputs:  # 输出变量的定义（必填）\n                task_url:  # 变量名\n \
+    \                 children: null\n                  type: string  # 变量的类型\n   \
+    \           - variables:  # 输入变量的定义（必填）\n                - value_selector:  #\
+    \ 来自其他节点的输入\n                  - [输入节点ID]\n                  - [变量名]\n     \
+    \             variable: arg1  # 函数的参数名\n\n\n          if_else_node:\n        \
+    \    - id: 唯一ID\n            - type: if-else\n            - data:\n       \
+    \         title: 条件分支\n                cases:\n                  - case_id: 'true'\n\
+    \                    logical_operator: and\n                    conditions:\n\
+    \                      - id: 5d3c1fa4-e26c-4f4b-a3a9-d4c32d63d5f8\n          \
+    \              varType: number\n                        variable_selector:\n \
+    \                         - [输入节点ID]\n                          - [变量名]\n   \
+    \                     comparison_operator: 'contains'  # 遵循ComparisonOperator枚举类型\n\
+    \                        value: '5'\n                        numberVarType: constant\n\
+    \                      - id: f764d294-6b89-46a2-9486-8b2c067e58ff\n          \
+    \              varType: string\n                        variable_selector:\n \
+    \                         - [输入节点ID]\n                          - [变量名]\n   \
+    \                     key: 'subKey'\n                        comparison_operator:\
+    \ 'contains'\n                        value: '测试'\n                        sub_variable_condition:\n\
+    \                          case_id: 'sub1'\n                          logical_operator:\
+    \ and\n                          conditions:\n                            - id:\
+    \ 'sub-condition-1'\n                              varType: string\n         \
+    \                     comparison_operator: 'start with'\n                    \
+    \          value: 'prefix'\n\n\n          variable_aggregator_node:\n        \
+    \    - id: 唯一ID\n            - type: variable-aggregator\n            - data:\n\
+    \              - title: 变量聚合器\n              - output_type: string/number/boolean\
+    \  # 输出变量的类型\n              - variables:                         # 要聚合的变量列表\n\
+    \                - - [输入节点ID1]\n                  - [变量名1]\n                -\
+    \ - [输入节点ID2]\n                  - [变量名2]\n\n\n          document_extractor_node:\n\
+    \            - id: 唯一ID\n            - type: document-extractor\n         \
+    \   - data:\n              - title: 文本提取工具\n              - is_array_file:\
+    \ false\n              - variable_selector:\n                - [输入节点ID]\n   \
+    \             - [变量名]\n\n\n          template_transform_node:\n            - id:\
+    \ 唯一ID\n            - type: template-transform\n            - data:\n     \
+    \           title: 模板转换\n                template: 模板字符串（Jinja2格式）\n \
+    \               variables:\n                  - value_selector:  # 指定输入变量\n \
+    \                   - [输入节点ID]\n                    - [变量名]\n               \
+    \     variable: [在模板中使用的变量名]\n                outputs:\n                \
+    \  output:  # 固定的输出变量名\n                    type: string  # 始终为string类型\n\n\n  \
+    \        answer_node:\n            - id: 唯一ID\n            - type: answer\n\
+    \            - data:\n                title: 响应节点\n                answer: 响应文本或变量引用\n\
+    \                variables: []  # 根据需要定义变量\n\n\n          parameter_extractor_node:\n\
+    \            - id: 唯一ID（必填）\n            - type: parameter-extractor（固定）\n\
+    \            - data:\n              - title: 参数提取\n              - query: #\
+    \ 指定输入变量（必填）\n                - [输入节点ID]\n                - [变量名]\n        \
+    \      - model: # 模型设置（必填）\n                - provider: 提供商名称\n           \
+    \     - name: 模型名称\n                - mode: chat/completion\n                -\
+    \ completion_params:\n                  - temperature: 0.0-1.0\n             \
+    \ - reasoning_mode: # 推理模式（必填）\n                - prompt: 基于提示词\n        \
+    \        - function_call: 函数调用\n              - parameters: # 提取参数定义（必填）\n\
+    \                - name: 参数名\n                  type: 参数类型\n            \
+    \      description: 说明文\n                  required: true/false\n            \
+    \      options: # select类型的选项\n                    - 选项1\n             \
+    \       - 选项2\n              - instruction: 提示词字符串\n              - memory:\
+    \ # 内存设置（可选）\n                - role_prefix:\n                  - user: 用户前缀\n\
+    \                  - assistant: 助手前缀\n              - vision: # 图像处理设置（可选）\n\
+    \                - enabled: true/false\n                - configs: 图像设置\n\n\n\
+    \          youtube_transcript_node:\n            - id: 唯一ID\n            -\
+    \ data:\n                type: tool\n                title: Free YouTube Transcript\
+    \ API\n                provider_name: transcript\n                provider_id:\
+    \ transcript\n                provider_type: builtin\n                tool_label:\
+    \ Free YouTube Transcript API\n                tool_name: free_youtube_transcript\n\
+    \                tool_configurations:\n                  cookies: null\n     \
+    \             format: text\n                  language: ja\n                 \
+    \ preserve_formatting: 0\n                  proxy: null\n                tool_parameters:\n\
+    \                  video_id:\n                    type: mixed\n              \
+    \      value: YouTube视频ID或变量引用\n                outputs:\n               \
+    \   text:  # 字幕文本的输出变量\n                    type: string\n\n\n          jina_reader_node:\n\
+    \            - id: 唯一ID\n            - type: tool\n            - data:\n  \
+    \            - provider_id: jina\n              - provider_name: jina\n      \
+    \        - provider_type: builtin\n              - title: JinaReader\n       \
+    \       - tool_configurations:\n                  gather_all_images_at_the_end:\
+    \ 0  # 图像收集设置\n                  gather_all_links_at_the_end: 0   # 链接收集设置\n\
+    \                  image_caption: 0                 # 图像说明设置\n           \
+    \       no_cache: 0                      # 禁用缓存\n                  proxy_server:\
+    \ null               # 代理服务器设置\n                  summary: 0              \
+    \         # 摘要功能\n                  target_selector: null            # 目标元素选择器\n\
+    \                  wait_for_selector: null          # 等待元素选择器\n            \
+    \  - tool_label: JinaReader\n              - tool_name: jina_reader\n        \
+    \      - tool_parameters:\n                  url:\n                    type: mixed\n\
+    \                    value: '{{#[输入节点ID].[变量名]#}}'  # URL输入\n\n\n          tavily_search_node:\n\
+    \            - id: 唯一ID\n            - type: tool\n            - data:\n  \
+    \            - provider_id: tavily\n              - provider_name: tavily\n  \
+    \            - provider_type: builtin\n              - title: TavilySearch\n \
+    \             - tool_configurations:\n                  exclude_domains: null\
+    \      # 排除域名\n                  include_domains: null      # 包含域名\n    \
+    \              include_answer: null       # 包含回答\n                  include_images:\
+    \ null       # 包含图像\n                  include_raw_content: null  # 包含原始内容\n\
+    \                  max_results: 3             # 最大结果数\n                  search_depth:\
+    \ basic        # 搜索深度\n              - tool_label: TavilySearch\n            \
+    \  - tool_name: tavily_search\n              - tool_parameters:\n            \
+    \      query:\n                    type: mixed\n                    value: '{{#[输入节点ID].[变量名]#}}'\n\
+    \n\n    usage_guide: |\n      工作流使用方法：\n      1. 开始节点\n         使用场景:\n\
+    \         - 作为工作流的起始点\n         - 接受用户输入\n         - 将输入的信息保存为变量\n\
+    \n\n         结构:\n         - id: 唯一ID（必填）\n         - type: start（固定）\n   \
+    \      - variables: 输入变量的数组（必填）\n           - type: 变量的类型（必填）\n           - variable:\
+    \ 变量名（必填）\n           - label: 显示标签（必填）\n           - required: 是否为必填输入（必填）\n\
+    \           - 其他设置（根据类型所需）\n\n\n         变量类型与专有设置:\n         - file（文件输入）:\n\
+    \           - allowed_file_types: 允许的文件类型\n             - document: 文档文件\n\
+    \             - image: 图像文件\n             - audio: 音频文件\n             - video:\
+    \ 视频文件\n           - allowed_file_upload_methods: 上传方式\n             - local_file:\
+    \ 本地文件\n             - remote_url: 远程URL\n           - max_length: 最大文件名长度\n\
+    \           - required: 是否为必填项\n         - number（数值输入）:\n           - min:\
+    \ 最小值（可选）\n           - max: 最大值（可选）\n         - paragraph（段落文本）:\n  \
+    \         - max_length: 最大字数（可选）\n           - options: 选项（可选）\n     \
+    \    - text-input（短文本）:\n           - max_length: 最大字数（可选）\n          \
+    \ - options: 选项（可选）\n\n\n      2. LLM节点\n         使用场景:\n         - 文本生成和响应创建\n\
+    \         - 输入文本的加工和转换\n         - 生成问题的回答\n         结构:\n         - id: 唯一ID（必填）\n\
+    \         - type: llm（固定）\n         - model:（必填）\n           - provider: openai（固定）\n\
+    \           - name: gpt-4o（固定）\n           - mode: chat（固定）\n           - completion_params:\n\
+    \             - temperature: 0.0-1.0的值（必填）\n         - prompt_template:（必填）\n\
+    \           - role: system（固定）\n           - text: 提示词文本（必填）\n         - context:（必填）\n\
+    \           - enabled: true（固定）\n           - variable_selector: 指定要使用的变量（必填）\n\
+    \         - vision:\n           - enabled: false（固定）\n         注意事项:\n       \
+    \  - 提示词必须用单引号括住\n         - 只能使用系统角色的提示词\n         - 变量引用格式:\
+    \ {{#节点ID.变量名#}}\n         \n      3. 结束节点\n         使用场景:\n         - 作为工作流的结束点\n\
+    \         - 定义处理结果的输出\n         - 向后续系统传递数据\n\n\n         结构:\n       \
+    \  - id: 唯一ID（必填）\n         - type: end（固定）\n         - outputs:（必填）\n    \
+    \       - value_selector:（必填）\n             - [节点ID]\n             - [变量名]\n\
+    \           - variable: 输出变量名（必填）\n\n\n         注意事项:\n         - 至少需要一个输出变量\n\
+    \         - 可定义多个输出变量\n\n\n      4. HTTP请求节点\n         使用场景:\n      \
+    \   - 与外部API联动\n         - 数据的发送和接收\n         - 发送Webhook通知\n         - 与外部服务集成\n\
+    \n\n         结构:\n         - id: 唯一ID（必填）\n         - type: http-request（固定）\n\
+    \         - data:（必填）\n           - authorization:（必填）\n             - config:\
+    \ 认证设置（可选）\n             - type: 认证类型（必填）\n               - no-auth: 无认证\n\
+    \               - basic: Basic认证\n               - bearer: Bearer认证\n        \
+    \   - body:（必填）\n             - type: 请求体类型（必填）\n               - json:\
+    \ JSON格式\n               - form-data: 多部分表单\n               - x-www-form-urlencoded:\
+    \ URL编码格式\n             - data: 请求数据（必填）\n           - headers: 请求头信息（必填）\n\
+    \           - method: HTTP方法（必填）\n           - url: 端点URL（必填）\n       \
+    \    - timeout:（可选）\n             - max_connect_timeout: 连接超时秒数\n     \
+    \        - max_read_timeout: 读取超时秒数\n             - max_write_timeout: 写入超时秒数\n\
+    \           - title: 节点标题（必填）\n           - variables: 变量定义（可选）\n\n\n \
+    \        注意事项:\n         HTTP方法:\n         - GET: 获取资源\n           - 通过查询参数进行搜索\n\
+    \           - 可缓存\n         - POST: 发送/创建数据\n           - 资源的创建\n    \
+    \       - 发送大量数据\n         - PUT: 更新/创建资源\n           - 完全替换\n      \
+    \     - 具有幂等性\n         - PATCH: 部分更新资源\n           - 更新部分字段\n       \
+    \    - 不具有幂等性\n         - DELETE: 删除资源\n           - 删除指定资源\n         -\
+    \ HEAD: 获取请求头信息\n           - 无响应体\n\n\n         变量引用:\n         - 格式:\
+    \ {{#[节点ID].[变量名]#}}\n         - 可引用其他节点的输出\n         - 可通过JSON路径引用嵌套的值\n\
+    \n\n         超时设置:\n         - 0表示无限制\n         - 可以毫秒为单位指定\n       \
+    \  - 可在各阶段单独设置\n\n\n      5. JSON Parse节点\n         使用场景:\n         - 解析JSON数据\n\
+    \         - 提取特定键\n         - 处理API响应\n         - 加工结构化数据\n\n\n     \
+    \    结构:\n         - id: 唯一ID（必填）\n         - type: tool（固定）\n         - data:（必填）\n\
+    \           - provider_id: json_process（固定）\n           - provider_name: json_process（固定）\n\
+    \           - provider_type: builtin（固定）\n           - title: 节点标题（必填）\n \
+    \          - tool_configurations:（必填）\n             - ensure_ascii: 1或0（必填）\n\
+    \           - tool_name: parse（固定）\n           - tool_parameters:（必填）\n      \
+    \       - content:（必填）\n               - type: mixed（固定）\n               - value:\
+    \ 要解析的JSON（必填）\n             - json_filter:（必填）\n               - type: mixed（固定）\n\
+    \               - value: 提取键（必填）\n\n\n         注意事项:\n         数据格式:\n     \
+    \    - content: JSON字符串或对象\n           - 可引用其他节点的输出\n           - 变量引用格式:\
+    \ {{#[节点ID].[变量名]#}}\n         \n         字符编码:\n         - ensure_ascii:\
+    \ \n           - 1: 仅使用ASCII字符\n           - 0: 允许Unicode字符\n         \n   \
+    \      过滤:\n         - 单一键: \"key\"\n         - 嵌套键: \"key1.key2\"\n\
+    \         - 数组索引: \"array[0]\"\n         - 多个键: [\"key1\", \"key2\"]\n  \
+    \       - 条件: \"key[?(@.field=='value')]\"\n\n\n      6. 问题分类器节点\n        \
+    \ 使用场景:\n         - 自动分类问题内容\n         - 判别意图\n         - 优化响应流程\n \
+    \        - 控制多路径处理\n\n\n         结构:\n         - id: 唯一ID（必填）\n        \
+    \ - type: question-classifier（固定）\n         - data:（必填）\n           - title: 节点标题（必填）\n\
+    \           - model:（必填）\n             - provider: openai（固定）\n             -\
+    \ name: gpt-4o（固定）\n             - mode: chat（固定）\n             - completion_params:（必填）\n\
+    \               - temperature: 0.0-1.0的值\n           - query_variable_selector:（必填）\n\
+    \             - [输入节点ID]\n             - [变量名]\n           - classes:（必填）\n \
+    \            - id: 类别ID（必填）\n             - name: 分类名（必填）\n\n\n         注意事项:\n\
+    \         分支模式:\n         1. 使用共同LLM模式:\n            - 类别1的问题 → 知识获取1 → 共同LLM\
+    \ → 结束\n            - 类别2的问题 → 知识获取2 → 共同LLM → 结束\n            - 其他问题 → 直接到结束节点\n\
+    \         \n         2. 使用各自LLM模式:\n            - 类别1的问题 → 知识获取1 → LLM1 → 结束1\n\
+    \            - 类别2的问题 → 知识获取2 → LLM2 → 结束2\n            - 其他问题 → 直接到结束节点\n\
+    \n\n         边连接设置:\n         - sourceHandle: 问题分类的ID（'1', '2'等）\n        \
+    \ - targetHandle: 指定'target'\n         - sourceType: question-classifier\n  \
+    \       - targetType: 连接目标的节点类型\n\n\n         分类结果的利用:\n         - 根据各类别选择合适的知识库\n\
+    \         - 按类别使用不同的提示词\n         - 根据分类结果实现条件分支\n\n\n      7. 知识获取节点\n\
+    \         使用场景:\n         - 从数据集中搜索相关信息\n         - 获取与问题相关的知识\n     \
+    \    - 基于上下文生成响应\n         - 整合来自多个来源的信息\n\n\n         结构:\n         - id:\
+    \ 唯一ID（必填）\n         - type: knowledge-retrieval（固定）\n         - data:（必填）\n\
+    \           - title: 节点标题（必填）\n           - dataset_ids: 数据集ID的数组（必填）\n\
+    \           - retrieval_mode: multiple（固定）\n           - multiple_retrieval_config:（必填）\n\
+    \             - reranking_enable: true/false（必填）\n             - reranking_mode:\
+    \ weighted_score（必填）\n             - top_k: 获取件数（必填）\n             - weights:（必填）\n\
+    \               - vector_setting:（必填）\n                 - embedding_model_name:\
+    \ 模型名称（必填）\n                 - embedding_provider_name: 提供商名称（必填）\n         \
+    \        - vector_weight: 向量权重（必填）\n               - keyword_setting:（必填）\n\
+    \                 - keyword_weight: 关键字权重（必填）\n           - query_variable_selector:（必填）\n\
+    \             - [输入节点ID]\n             - [变量名]\n\n\n         注意事项:\n        \
+    \ 搜索设置:\n         - embedding_model_name:\n           - text-embedding-3-large:\
+    \ 高精度模型\n           - text-embedding-ada-002: 标准模型\n         \n         权重设置:\n\
+    \         - vector_weight: 0.0-1.0\n           - 1.0: 仅向量搜索\n           - 0.0:\
+    \ 仅关键字搜索\n         - keyword_weight: 0.0-1.0\n           - 高值: 重视关键字匹配\n\
+    \           - 低值: 重视语义搜索\n         \n         搜索结果:\n         - top_k: 获取的结果数\n\
+    \           - 推荐值: 3-5\n           - 最大值: 10\n         - reranking: 搜索结果的重排序\n\
+    \           - weighted_score: 基于分数的权重\n           - 可调整精度与响应时间的平衡\n   \
+    \        \n      8. 代码节点\n          使用场景:\n          - 实现自定义逻辑\n     \
+    \     - 数据的加工和转换\n          - 与外部系统联动\n          - 控制条件分支\n\n\n         \
+    \ 结构:\n          - id: 唯一ID（必填）\n          - type: code（固定）\n          - data:（必填）\n\
+    \            - code_language: python3（固定）\n            - code: Python代码（必填，用双引号括住）\n\
+    \            - title: 节点标题（必填）\n            - outputs:（必填）\n             \
+    \ - [变量名]:\n                - type: 变量的类型（必填）\n                - children: null（固定）\n\
+    \            - variables:（必填）\n              - value_selector:（必填）\n         \
+    \       - [输入节点ID]\n                - [变量名]\n              - variable: 函数的参数名（必填）\n\
+    \n\n          注意事项:\n            - 不能使用boolean类型。请用number类型的0/1代替。\n  \
+    \        可使用的库:\n          - 基础库:\n            - datetime: 日期时间处理\n   \
+    \         - math: 数学函数\n            - random: 随机数生成\n            - re: 正则表达式\n \
+    \           - string: 字符串操作\n          - 系统相关:\n            - sys: 系统操作\n\
+    \            - os: OS操作\n            - time: 时间处理\n            - traceback: 错误追踪\n\
+    \            - uuid: 唯一标识符生成\n          - 数据处理:\n            - json: JSON处理\n\
+    \            - base64: 编码/解码\n            - collections: 集合类型\n      \
+    \      - itertools: 迭代器操作\n          - 加密/哈希:\n            - hashlib: 哈希函数\n\
+    \            - hmac: 消息认证\n            - binascii: 二进制/ASCII转换\n         \
+    \ - 函数操作:\n            - functools: 函数工具\n            - operator: 运算符接口\n\
+    \n\n          输出变量的类型:\n          - 基础类型:\n            - string: 字符串类型\n        \
+    \    - number: 数值类型\n          - 特殊类型:\n            - secret: 机密信息类型\n          \
+    \  - object: 对象类型\n            - file: 文件类型\n          - 数组类型:\n          \
+    \  - array: 基础数组类型\n            - array[string]: 字符串数组\n            - array[number]:\
+    \ 数值数组\n            - array[object]: 对象数组\n            - array[file]: 文件数组\n\
+    \          - 其他:\n            - any: 任意类型\n\n\n          代码实现规则:\n         \
+    \ - 以main函数实现（必填）\n          - 添加类型注解（必填）\n          - 返回值为字典格式（必填）\n  \
+    \        - 用双引号括住整个代码\n          - 内部的双引号需转义\n          - 换行用\\n表示\n\
+    \          实现示例:\n          ```python\n          def main(arg1: str) -> dict:\n\
+    \              return {\n                  \"result\": arg1[7:-3],\n         \
+    \     }\n          ```\n\n\n      9. IF/ELSE节点\n          使用场景:\n         \
+    \ - 基于条件的流程控制\n          - 多路径分支处理\n          - 根据数据值分配处理\n        \
+    \  - 实现条件逻辑\n\n\n          结构:\n          - id: 唯一ID（必填）\n          -\
+    \ type: if-else（固定）\n          - data:（必填）\n            - title: 节点标题（必填）\n\
+    \            - cases:（必填）\n              - case_id: 条件ID（必填）\n              -\
+    \ logical_operator: and/or（必填）\n              - conditions:（必填）\n            \
+    \    - id: 条件的ID（必填）\n                - varType: 变量的类型（必填）\n                - variable_selector:（必填）\n\
+    \                  - [输入节点ID]\n                  - [变量名]\n                - comparison_operator:\
+    \ 比较运算符（必填）\n                - value: 比较值（必填）\n                - numberVarType:\
+    \ 数值比较类型（数值类型时必填）\n                - key: 子变量的键（可选）\n                -\
+    \ sub_variable_condition: 子变量的条件（可选）\n\n\n          注意事项:\n          比较运算符:\n\
+    \          - 字符串比较:\n            - contains: 字符串中包含指定值\n            - not contains:\
+    \ 字符串中不包含指定值\n            - start with: 以指定值开头\n            - end with: 以指定值结尾\n\
+    \            - is: 完全匹配\n            - is not: 完全不匹配\n          - 数值比较:\n    \
+    \        - =: 等于\n            - ≠: 不等于\n            - >: 大于\n          \
+    \  - <: 小于\n            - ≥: 大于等于\n            - ≤: 小于等于\n          - 存在检查:\n\
+    \            - empty: 为空\n            - not empty: 不为空\n            - is null:\
+    \ 为null值\n            - is not null: 不为null值\n          - 列表操作:\n        \
+    \    - in: 存在于列表中\n            - not in: 不存在于列表中\n            - all of:\
+    \ 满足所有条件\n          - 其他:\n            - exists: 存在\n            - not\
+    \ exists: 不存在\n\n\n          变量类型:\n          - number: 数值类型\n            - numberVarType:\
+    \ constant/variable\n          - string: 字符串类型\n          - boolean: 布尔值类型\n\n\n\
+    \          边连接:\n          - sourceHandle: 'true'\n            - IF条件成立时的连接\n\
+    \          - sourceHandle: 'false'\n            - ELSE条件时的连接\n          - sourceType:\
+    \ if-else\n          - targetType: 连接目标的节点类型\n\n\n      10. 变量聚合器节点\n\
+    \          使用场景:\n          - 汇总来自多个节点的输出\n          - 整合来自不同路径的结果\n  \
+    \        - 分支处理后的数据整合\n          - 合并来自多个来源的数据\n\n\n          结构:\n      \
+    \    - id: 唯一ID（必填）\n          - type: variable-aggregator（固定）\n          -\
+    \ data:（必填）\n            - title: 节点标题（必填）\n            - output_type: 输出变量的类型（必填）\n\
+    \              - string: 字符串类型\n              - number: 数值类型\n              - boolean:\
+    \ 布尔值类型\n            - variables: 要聚合的变量列表（必填）\n              - [输入节点ID, 变量名]的数组\n\
+    \n\n          注意事项:\n          数据聚合模式:\n          - IF/ELSE分支后的整合:\n      \
+    \      - 来自true分支的输出\n            - 来自false分支的输出\n            - 整合为单一输出流\n\
+    \          \n          - 并行处理结果的整合:\n            - 来自多个LLM节点的响应\n           \
+    \ - 多个API调用的结果\n            - 来自不同处理路径的输出\n          \n          变量的顺序:\n  \
+    \        - 列表的顺序影响输出顺序\n          - 先指定的变量优先\n          - 后续变量按条件使用\n\
+    \n\n          类型转换规则:\n          - 转换为string类型:\n            - number: 转换为字符串表示\n\
+    \            - boolean: 转换为\"true\"/\"false\"\n          - 转换为number类型:\n    \
+    \        - string: 仅允许数值表示\n            - boolean: 转换为1/0\n          - 转换为boolean类型:\n\
+    \            - string: 仅允许\"true\"/\"false\"\n            - number: 非0即为true\n\
+    \n\n      11. 文档提取器节点\n          使用场景:\n          - 从文档中提取文本\n\
+    \          - 解析文件内容\n          - 文本数据的预处理\n\n\n          结构:\n         \
+    \ - id: 唯一ID（必填）\n          - type: document-extractor（固定）\n          - data:\n\
+    \            - title: 节点标题（必填）\n            - is_array_file: 是否为数组输入（必填）\n\
+    \            - variable_selector: 指定输入变量（必填）\n              - [输入节点ID]\n   \
+    \           - [变量名]\n\n\n      12. 模板转换节点\n          使用场景:\n\
+    \          - 向模板字符串中嵌入变量\n          - 动态消息生成\n          - 条件文本生成\n\
+    \          - 数组数据的字符串化\n\n\n          结构:\n          - id: 唯一ID（必填）\n    \
+    \      - type: template-transform（固定）\n          - data:\n              title:\
+    \ 节点标题（必填）\n              template: Jinja2格式的模板（必填）\n              variables:\
+    \ 输入变量的数组（必填）\n                - value_selector: 变量的引用源\n                  - [输入节点ID]\n\
+    \                  - [变量名]\n                  variable: 在模板中使用的变量名\n\n\n\
+    \          模板语法:\n          - 变量引用: \n            - 基本形式: {{ 变量名 }}\n     \
+    \       - 使用过滤器: {{ 变量名|upper }}\n          - 条件分支:\n            ```\n     \
+    \       {% if 条件 %}\n              条件成立时的字符串\n            {% else %}\n       \
+    \       条件不成立时的字符串\n            {% endif %}\n            ```\n          - 循环处理:\n\
+    \            ```\n            {% for item in items %}\n              {{ item }}\n\
+    \            {% endfor %}\n            ```\n\n\n          输入变量的类型:\n          -\
+    \ string: 字符串\n          - number: 数值\n          - object: 对象\n          -\
+    \ array: 数组\n          - arrayNumber: 数值数组\n          - arrayString: 字符串数组\n \
+    \         - arrayObject: 对象数组\n\n\n          输出:\n          - output: 生成的字符串（固定为string类型）\n\
+    \n\n      13. 响应节点\n          使用场景:\n          - 工作流的响应输出\n        \
+    \  - 显示LLM输出\n          - 显示变量值\n          - 确认中间结果\n\n\n          结构:\n  \
+    \        - id: 唯一ID（必填）\n          - type: answer（固定）\n          - data:\n\
+    \              title: 节点标题（必填）\n              answer: 响应文本（必填）\n       \
+    \         - 固定文本\n                - 变量引用: {{#节点ID.变量名#}}\n              variables:\
+    \ []  # 可选\n\n\n          注意事项:\n          - 变量引用:\n            - 格式: {{#节点ID.变量名#}}\n\
+    \            - 可组合多个变量\n            - 也可引用系统变量\n          \n        \
+    \  - 可使用的变量类型:\n            - string: 字符串\n            - number: 数值\n        \
+    \    - object: 对象\n            - array: 数组\n            - arrayString: 字符串数组\n\
+    \            - arrayNumber: 数值数组\n            ※ 不支持arrayObject\n\n\n        \
+    \  - 连接:\n            - 前段: 可从所有节点类型连接\n            - 后段: 可连接到所有节点类型\n\
+    \            - 在聊天模式下有特殊行为\n\n\n      16. 参数提取节点\n          使用场景:\n\
+    \          - 从文本中提取结构化数据\n          - 解析用户输入\n          - 信息的分类和整理\n  \
+    \        - 用于条件分支的输入解析\n\n\n          结构:\n          - id: 唯一ID（必填）\n    \
+    \      - type: parameter-extractor（固定）\n          - data:\n            - title:\
+    \ 节点标题（必填）\n            - query: 指定输入变量（必填）\n            - model: 模型设置（必填）\n\
+    \            - reasoning_mode: 推理模式（必填）\n            - parameters: 参数定义（必填）\n\
+    \            - instruction: 提示词（必填）\n            - memory: 内存设置（可选）\n  \
+    \          - vision: 图像处理设置（可选）\n\n\n          参数类型:\n          - string:\
+    \ 字符串类型\n          - number: 数值类型\n          - bool: 布尔值类型\n          - select: 选择类型（options必填）\n\
+    \          - array[string]: 字符串数组类型\n          - array[number]: 数值数组类型\n       \
+    \   - array[object]: 对象数组类型\n\n\n          推理模式:\n          - prompt: \n \
+    \           - 基于提示词的提取\n            - 可灵活定义提取规则\n          - function_call:\n\
+    \            - 基于函数调用\n            - 更结构化的提取\n\n\n          输出变量:\n    \
+    \      - [参数名]: 各参数的提取结果\n          - __is_success: 提取成功标志（0/1）\n     \
+    \     - __reason: 错误原因（发生错误时）\n\n\n          注意事项:\n          - 参数名必须唯一\n\
+    \          - 必填参数必须提取\n          - 提示词需清楚描述提取规则\n          - 图像处理仅可用于支持的模型\n\
+    \n\n      17. YouTube字幕节点\n          使用场景:\n          - 获取YouTube视频的字幕\n\
+    \          - 将音频内容转换为文本\n          - 多语言内容的翻译辅助\n          - 分析和摘要视频内容\n\
+    \n\n          结构:\n          - id: 唯一ID（必填）\n          - data:\n          \
+    \    type: tool（固定）\n              title: Free YouTube Transcript API\n      \
+    \        provider_name: transcript（固定）\n              provider_id: transcript（固定）\n\
+    \              provider_type: builtin（固定）\n              tool_label: Free YouTube\
+    \ Transcript API\n              tool_name: free_youtube_transcript（固定）\n     \
+    \         tool_configurations:\n                cookies: null\n              \
+    \  format: text（固定）\n                language: ja  # 语言代码\n                preserve_formatting:\
+    \ 0  # 保留格式\n                proxy: null\n              tool_parameters:\n\
+    \                video_id:\n                  type: mixed（固定）\n              \
+    \    value: YouTube视频ID或变量引用\n              outputs:\n                text:\
+    \  # 字幕文本的输出变量\n                  type: string\n\n\n          注意事项:\n      \
+    \    - video_id可用以下格式指定:\n            - 直接指定: 'XLzul_7GPs4'\n            -\
+    \ 变量引用: '{{#[输入节点ID].[变量名]#}}'\n          - language设置:\n            - ja: 日语\n\
+    \            - en: 英语\n          - preserve_formatting:\n            - 0: 去除格式（推荐）\n\
+    \            - 1: 保留原文格式\n          - 输出变量:\n            - text: 获取的字幕文本（string类型）\n\
+    \n\n      18. JinaReader节点\n          使用场景:\n          - 从网页提取文本\n  \
+    \        - 内容抓取\n          - 网络文章摘要\n          - 收集图像和链接\n\n\n   \
+    \       结构:\n          - id: 唯一ID（必填）\n          - type: tool（固定）\n       \
+    \   - data:\n              title: 节点标题（必填）\n              provider_name: jina（固定）\n\
+    \              provider_id: jina（固定）\n              provider_type: builtin（固定）\n\
+    \              tool_label: JinaReader（固定）\n              tool_name: jina_reader（固定）\n\
+    \              tool_configurations:\n                gather_all_images_at_the_end:\
+    \ 0/1  # 图像收集\n                gather_all_links_at_the_end: 0/1   # 链接收集\n  \
+    \              image_caption: 0/1                 # 图像说明\n               \
+    \ no_cache: 0/1                      # 缓存设置\n                proxy_server:\
+    \ 代理URL              # 代理设置\n                summary: 0/1                    \
+    \   # 摘要功能\n                target_selector: CSS选择器         # 提取特定元素\n        \
+    \        wait_for_selector: CSS选择器       # 等待元素\n              tool_parameters:\n\
+    \                url:\n                  type: mixed（固定）\n                  value:\
+    \ URL字符串或变量引用\n              outputs:\n                text:\n             \
+    \     type: string\n\n\n          注意事项:\n          - URL输入:\n            - 直接指定:\
+    \ 'https://example.com'\n            - 变量引用: '{{#[输入节点ID].[变量名]#}}'\n       \
+    \   \n          - 设置选项:\n            - gather_all_images_at_the_end: 批量收集图像\n\
+    \            - gather_all_links_at_the_end: 批量收集链接\n            - image_caption:\
+    \ 获取图像说明\n            - summary: 内容自动摘要\n            - target_selector:\
+    \ 提取特定DOM元素\n          \n          - 代理设置:\n            - 应对访问受限的网站\n\
+    \            - 绕过地区限制\n            - 负载均衡\n\n\n          - 缓存控制:\n       \
+    \     - no_cache: 1时禁用缓存\n            - 始终获取最新内容\n\n\n      19. TavilySearch节点\n\
+    \          使用场景:\n          - 执行网络搜索\n          - 信息收集\n          - 内容调研\n\
+    \          - 指定域名搜索\n\n\n          结构:\n          - id: 唯一ID（必填）\n      \
+    \    - type: tool（固定）\n          - data:\n              title: 节点标题（必填）\n\
+    \              provider_name: tavily（固定）\n              provider_id: tavily（固定）\n\
+    \              provider_type: builtin（固定）\n              tool_label: TavilySearch（固定）\n\
+    \              tool_name: tavily_search（固定）\n              tool_configurations:\n\
+    \                exclude_domains: 排除的域名列表    # 可选\n                include_domains:\
+    \ 包含的域名列表    # 可选\n                include_answer: true/false            #\
+    \ 包含回答\n                include_images: true/false            # 包含图像\n     \
+    \           include_raw_content: true/false       # 原始内容\n                max_results:\
+    \ 搜索结果数（1-10）       # 必填\n                search_depth: basic/advanced       \
+    \   # 搜索深度\n              tool_parameters:\n                query:\n         \
+    \         type: mixed（固定）\n                  value: 搜索查询或变量引用\n\n\n       \
+    \   注意事项:\n          - 搜索查询:\n            - 直接指定: '要搜索的关键词'\n            -\
+    \ 变量引用: '{{#[输入节点ID].[变量名]#}}'\n          \n          - 搜索深度:\n            -\
+    \ basic: 基础搜索（高速）\n            - advanced: 详细搜索（更多结果）\n          \n    \
+    \      - 域名控制:\n            - exclude_domains: 从搜索中排除的域名\n            - include_domains:\
+    \ 搜索目标的域名\n          \n          - 结果控制:\n            - max_results: 获取的搜索结果数量\n\
+    \            - include_answer: 获取相关回答\n            - include_images: 获取相关图像\n\
+    \            - include_raw_content: 未加工内容\n\n\n    output_format: |\n     \
+    \ 生成的YAML文件请遵循以下格式：\n      ```yaml\n      app:\n        mode: workflow\n\
+    \        name: [工作流名称]\n        version: 0.1.3\n\n\n      workflow:\n      \
+    \  graph:\n          edges:\n            # IF/ELSE分支的边示例\n            - source:\
+    \ [IF/ELSE节点ID]\n              target: [目标节点ID]\n              data:\n  \
+    \              sourceType: if-else\n                targetType: [目标节点类型]\n\
+    \              sourceHandle: 'true'  # IF条件成立时\n            - source: [IF/ELSE节点ID]\n\
+    \              target: [另一个目标节点ID]\n              data:\n                sourceType:\
+    \ if-else\n                targetType: [目标节点类型]\n              sourceHandle:\
+    \ 'false'  # ELSE条件时\n\n\n          nodes:\n            - id: [开始节点ID]\n    \
+    \          data:\n                type: start\n                title: 开始\n   \
+    \             variables:\n                  # 文件输入的示例\n                  - type:\
+    \ file\n                    variable: input_document\n                    label:\
+    \ 文档\n                    required: true\n                    max_length:\
+    \ 48\n                    allowed_file_types:\n                      - document\n\
+    \                    allowed_file_upload_methods:\n                      - local_file\n\
+    \                      - remote_url\n\n\n                  # 其他输入类型\n     \
+    \             - type: text-input\n                    variable: [变量名]\n      \
+    \              type: string/number\n                    label: [输入字段的标签]\n\
+    \                    required: true\n                    max_length: [最大字数]\n\
+    \n\n            - id: [LLM节点ID]\n              data:\n                type: llm\n\
+    \                title: LLM\n                model:\n                  provider:\
+    \ openai\n                  name: gpt-4o\n                  mode: chat\n     \
+    \             completion_params:\n                    temperature: 0.7\n     \
+    \           prompt_template:\n                  - id: [提示词ID]\n            \
+    \        role: system\n                    text: '[提示词文本]'\n             \
+    \   context:\n                  enabled: true\n                  variable_selector:\n\
+    \                    - [开始节点ID]\n                    - [变量名]\n              \
+    \  vision:\n                  enabled: false\n            - id: [结束节点ID]\n  \
+    \            data:\n                type: end\n                title: 结束\n   \
+    \             outputs:\n                  - value_selector:\n                \
+    \      - [开始节点ID]\n                      - [变量名]\n                    variable:\
+    \ inputData\n                  - value_selector:\n                      - [LLM节点ID]\n\
+    \                      - text\n                    variable: generatedText\n\n\
+    \n            - id: [HTTP请求节点ID]\n              data:\n                type:\
+    \ http-request\n                authorization:\n                  config: null\n\
+    \                  type: no-auth  # 或所需的认证类型\n                body:\n     \
+    \             type: json\n                  data:\n                    - id: [键值ID]\n\
+    \                      key: ''\n                      type: text\n           \
+    \           value: |\n                        {\n                          \"\
+    key1\": \"{{#[开始节点ID].[变量名]#}}\",\n                          \"key2\": \"值2\"\
+    \n                        }\n                headers: Content-Type:application/json\n\
+    \                method: post\n                url: [API端点URL]\n        \
+    \        timeout:\n                  max_connect_timeout: 0\n                \
+    \  max_read_timeout: 0\n                  max_write_timeout: 0\n             \
+    \   title: HTTP请求\n                variables: []\n\n\n            - id: [JSON解析节点ID]\n\
+    \              data:\n                type: tool\n                desc: ''\n \
+    \               provider_id: json_process\n                provider_name: json_process\n\
+    \                provider_type: builtin\n                selected: false\n   \
+    \             title: JSON Parse\n                tool_configurations:\n      \
+    \            ensure_ascii: 1\n                tool_label: JSON Parse\n       \
+    \         tool_name: parse\n                tool_parameters:\n               \
+    \   content:\n                    type: mixed\n                    value: '{{#[输入节点ID].[变量名]#}}'\n\
+    \                  json_filter:\n                    type: mixed\n           \
+    \         value: [要提取的JSON键]\n\n\n            - id: [问题分类器节点ID]\n         \
+    \     data:\n                type: question-classifier\n                title:\
+    \ 问题分类器\n                model:\n                  provider: openai\n        \
+    \          name: gpt-4o\n                  mode: chat\n                  completion_params:\n\
+    \                    temperature: 0.7\n                query_variable_selector:\n\
+    \                  - [输入节点ID]\n                  - [变量名]\n                classes:\n\
+    \                  - id: '1'\n                    name: [分类名1]\n             \
+    \     - id: '2'\n                    name: [分类名2]\n\n\n            - id: [知识获取节点ID]\n\
+    \              data:\n                type: knowledge-retrieval\n            \
+    \    title: 知识获取\n                dataset_ids:\n                  - [数据集ID]\n\
+    \                retrieval_mode: multiple\n                multiple_retrieval_config:\n\
+    \                  reranking_enable: true\n                  reranking_mode: weighted_score\n\
+    \                  top_k: 4\n                  weights:\n                    vector_setting:\n\
+    \                      embedding_model_name: text-embedding-3-large\n        \
+    \              embedding_provider_name: openai\n                      vector_weight:\
+    \ 1\n                    keyword_setting:\n                      keyword_weight:\
+    \ 0\n                query_variable_selector:\n                  - [输入节点ID]\n\
+    \                  - [变量名]\n\n\n            - id: [代码节点ID]\n              data:\n\
+    \                type: code\n                code_language: python3\n        \
+    \        code: # Python程序的字符串\n                outputs:  # 输出变量的定义（必填）\n  \
+    \                task_url:  # 变量名\n                    children: null\n      \
+    \              type: string  # 指定上述定义的类型之一\n                variables: \
+    \ # 输入变量的定义（必填）\n                  - value_selector:  # 来自其他节点的输入\n         \
+    \           - [输入节点ID]\n                    - [变量名]\n                    variable:\
+    \ arg1  # 函数的参数名\n\n\n            - id: [IF/ELSE节点ID]\n              data:\n\
+    \                type: if-else\n                title: 条件分支\n                cases:\n\
+    \                  - case_id: 'true'\n                    logical_operator: and\n\
+    \                    conditions:\n                      - id: [条件ID]\n       \
+    \                 varType: [number/string/boolean]\n                        variable_selector:\n\
+    \                          - [输入节点ID]\n                          - [变量名]\n  \
+    \                      comparison_operator: [比较运算符]\n                        value:\
+    \ [比较值]\n                        numberVarType: [constant/variable]  # 数值类型时\n\
+    \                      - id: [条件ID2]\n                        varType: [变量类型]\n\
+    \                        key: [子变量键]  # 可选\n                        comparison_operator:\
+    \ [比较运算符]\n                        value: [比较值]\n                        sub_variable_condition:\
+    \  # 可选\n                          case_id: [子条件ID]\n                    \
+    \      logical_operator: and\n                          conditions:\n        \
+    \                    - id: [子条件ID]\n                              varType: [变量类型]\n\
+    \                              comparison_operator: [比较运算符]\n                \
+    \              value: [比较值]\n\n\n            - id: [变量聚合器节点]\n\
+    \              data:\n                type: variable-aggregator\n            \
+    \    title: 变量聚合器\n                output_type: string  # 或 number/boolean\n\
+    \                variables:\n                  - - [输入节点ID1]\n              \
+    \      - [变量名1]\n                  - - [输入节点ID2]\n                    - [变量名2]\n\
+    \n\n            - id: [文档提取器节点ID]\n              data:\n       \
+    \         type: document-extractor\n                title: 文本提取工具\n       \
+    \         is_array_file: false\n                variable_selector:\n         \
+    \         - [输入节点ID]\n                  - [变量名]\n            - id: [模板节点ID]\n\
+    \              data:\n                type: template-transform\n             \
+    \   title: 模板转换\n                template: |\n                  你好，{{ user_name\
+    \ }}！\n                  你的得分是{{ score }}分。\n                  {% if score\
+    \ >= 80 %}\n                  合格！恭喜你。\n                  {% else %}\n\
+    \                  很遗憾，不合格。\n                  {% endif %}\n              \
+    \  variables:\n                  - value_selector:\n                      - [输入节点ID]\n\
+    \                      - user_name\n                    variable: user_name\n\
+    \                  - value_selector:\n                      - [输入节点ID]\n    \
+    \                  - score\n                    variable: score\n            -\
+    \ id: [响应节点ID]\n              data:\n                type: answer\n         \
+    \       title: 响应输出\n                answer: |\n                  {{#[LLM节点ID].text#}}\n\
+    \                variables: []\n            - id: [参数提取节点ID]\n           \
+    \   data:\n                type: parameter-extractor\n                title: 参数提取\n\
+    \                query:\n                  - [输入节点ID]\n                  - [变量名]\n\
+    \                model:\n                  provider: [提供商名称]\n             \
+    \     name: [模型名称]\n                  mode: chat\n                  completion_params:\n\
+    \                    temperature: 0.7\n                reasoning_mode: prompt\n\
+    \                parameters:\n                  - name: [参数名]\n           \
+    \         type: string/number/bool/select/array[string]/array[number]/array[object]\n\
+    \                    description: [说明文]\n                    required: true/false\n\
+    \                    options: # 仅select类型时\n                      - [选项1]\n\
+    \                      - [选项2]\n                instruction: |\n          \
+    \        [提示词字符串]\n                memory:\n                  role_prefix:\n\
+    \                    user: [用户前缀]\n                    assistant: [助手前缀]\n\
+    \                vision:\n                  enabled: false\n                 \
+    \ configs: {}\n            - id: [YouTube字幕节点ID]\n              data:\n\
+    \                type: tool\n                title: Free YouTube Transcript API\n\
+    \                provider_name: transcript\n                provider_id: transcript\n\
+    \                provider_type: builtin\n                tool_label: Free YouTube\
+    \ Transcript API\n                tool_name: free_youtube_transcript\n       \
+    \         tool_configurations:\n                  cookies: null\n            \
+    \      format: text\n                  language: ja\n                  preserve_formatting:\
+    \ 0\n                  proxy: null\n                tool_parameters:\n       \
+    \           video_id:\n                    type: mixed\n                    value:\
+    \ '{{#[输入节点ID].[变量名]#}}'\n                outputs:\n                  text:\n\
+    \                    type: string\n            - id: [JinaReader节点ID]\n     \
+    \         data:\n                type: tool\n                title: JinaReader\n\
+    \                provider_name: jina\n                provider_id: jina\n    \
+    \            provider_type: builtin\n                tool_label: JinaReader\n\
+    \                tool_name: jina_reader\n                tool_configurations:\n\
+    \                  gather_all_images_at_the_end: 0  # 图像收集设置\n               \
+    \   gather_all_links_at_the_end: 0   # 链接收集设置\n                  image_caption:\
+    \ 0                 # 图像说明设置\n                  no_cache: 0              \
+    \        # 禁用缓存\n                  proxy_server: null               # 代理服务器设置\n\
+    \                  summary: 0                       # 摘要功能\n                 \
+    \ target_selector: null            # 目标元素选择器\n                  wait_for_selector:\
+    \ null          # 等待元素选择器\n                tool_parameters:\n              \
+    \    url:\n                    type: mixed\n                    value: '{{#[输入节点ID].[变量名]#}}'\
+    \  # URL输入\n                outputs:\n                  text:\n              \
+    \      type: string\n            - id: [TavilySearch节点ID]\n              data:\n\
+    \                type: tool\n                title: TavilySearch\n           \
+    \     provider_name: tavily\n                provider_id: tavily\n           \
+    \     provider_type: builtin\n                tool_label: TavilySearch\n     \
+    \           tool_name: tavily_search\n                tool_configurations:\n \
+    \                 exclude_domains: null      # 排除域名\n                  include_domains:\
+    \ null      # 包含域名\n                  include_answer: null       # 包含回答\n\
+    \                  include_images: null       # 包含图像\n                  include_raw_content:\
+    \ null  # 包含原始内容\n                  max_results: 3             # 最大结果数\n \
+    \                 search_depth: basic        # 搜索深度\n                tool_parameters:\n\
+    \                  query:\n                    type: mixed\n                 \
+    \   value: '{{#[输入节点ID].[变量名]#}}'\n                outputs:\n               \
+    \   text:\n                    type: string\n      ```"
+  prompt_type: simple
+  retriever_resource:
+    enabled: true
+  sensitive_word_avoidance:
+    configs: []
+    enabled: false
+    type: ''
+  speech_to_text:
+    enabled: false
+  suggested_questions: []
+  suggested_questions_after_answer:
+    enabled: false
+  text_to_speech:
+    enabled: false
+    language: ''
+    voice: ''
+  user_input_form: []
+version: 0.1.3

@@ -1,0 +1,353 @@
+app:
+  mode: workflow
+  name: 任务分析顾问
+  version: 0.1.3
+
+workflow:
+  graph:
+    edges:
+      # 开始 → 问题分类器
+      - source: '1731228343114'
+        target: '1731228343115'
+        data:
+          sourceType: start
+          targetType: question-classifier
+
+      # 问题分类器 → LLM（项目管理）
+      - source: '1731228343115'
+        sourceHandle: '1'
+        target: '1731228343116'
+        targetHandle: target
+        data:
+          sourceType: question-classifier
+          targetType: llm
+
+      # 问题分类器 → LLM（技术开发）
+      - source: '1731228343115'
+        sourceHandle: '2'
+        target: '1731228343117'
+        targetHandle: target
+        data:
+          sourceType: question-classifier
+          targetType: llm
+
+      # 问题分类器 → LLM（客户服务）
+      - source: '1731228343115'
+        sourceHandle: '3'
+        target: '1731228343118'
+        targetHandle: target
+        data:
+          sourceType: question-classifier
+          targetType: llm
+
+      # 各LLM → 变量聚合器
+      - source: '1731228343116'
+        target: '1731228343119'
+        data:
+          sourceType: llm
+          targetType: variable-aggregator
+      - source: '1731228343117'
+        target: '1731228343119'
+        data:
+          sourceType: llm
+          targetType: variable-aggregator
+      - source: '1731228343118'
+        target: '1731228343119'
+        data:
+          sourceType: llm
+          targetType: variable-aggregator
+
+      # 变量聚合器 → IF/ELSE
+      - source: '1731228343119'
+        target: '1731228343120'
+        data:
+          sourceType: variable-aggregator
+          targetType: if-else
+
+      # IF/ELSE → 模板（Manager用）
+      - source: '1731228343120'
+        target: '1731228343121'
+        data:
+          sourceType: if-else
+          targetType: template-transform
+        sourceHandle: 'true'
+
+      # IF/ELSE → 模板（Staff用）
+      - source: '1731228343120'
+        target: '1731228343122'
+        data:
+          sourceType: if-else
+          targetType: template-transform
+        sourceHandle: 'false'
+
+      # 模板 → 参数提取（通用）
+      - source: '1731228343121'
+        target: '1731228343123'
+        data:
+          sourceType: template-transform
+          targetType: parameter-extractor
+      - source: '1731228343122'
+        target: '1731228343123'
+        data:
+          sourceType: template-transform
+          targetType: parameter-extractor
+
+      # 参数提取 → 响应
+      - source: '1731228343123'
+        target: '1731228343124'
+        data:
+          sourceType: parameter-extractor
+          targetType: answer
+
+    nodes:
+      # 开始节点
+      - id: '1731228343114'
+        data:
+          type: start
+          title: 任务信息输入
+          variables:
+            - type: paragraph
+              variable: task_content
+              label: 任务内容
+              required: true
+              max_length: 1000
+            - type: select
+              variable: position
+              label: 职位
+              required: true
+              options:
+                - manager
+                - staff
+
+      # 问题分类器节点
+      - id: '1731228343115'
+        data:
+          type: question-classifier
+          title: 任务分类
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+            completion_params:
+              temperature: 0.3
+          query_variable_selector:
+            - '1731228343114'
+            - task_content
+          classes:
+            - id: '1'
+              name: 项目管理
+            - id: '2'
+              name: 技术开发
+            - id: '3'
+              name: 客户服务
+
+      # LLM节点（项目管理）
+      - id: '1731228343116'
+        data:
+          type: llm
+          title: 项目管理建议
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+            completion_params:
+              temperature: 0.7
+          prompt_template:
+            - id: 'prompt1'
+              role: system
+              text: '请针对以下与项目管理相关的任务提供具体建议：{{#1731228343114.task_content#}}'
+          context:
+            enabled: true
+            variable_selector:
+              - '1731228343114'
+              - task_content
+          vision:
+            enabled: false
+
+      # LLM节点（技术开发）
+      - id: '1731228343117'
+        data:
+          type: llm
+          title: 技术开发建议
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+            completion_params:
+              temperature: 0.7
+          prompt_template:
+            - id: 'prompt2'
+              role: system
+              text: '请针对以下与技术开发相关的任务，从技术角度提供建议：{{#1731228343114.task_content#}}'
+          context:
+            enabled: true
+            variable_selector:
+              - '1731228343114'
+              - task_content
+          vision:
+            enabled: false
+
+      # LLM节点（客户服务）
+      - id: '1731228343118'
+        data:
+          type: llm
+          title: 客户服务建议
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+            completion_params:
+              temperature: 0.7
+          prompt_template:
+            - id: 'prompt3'
+              role: system
+              text: '请针对以下与客户服务相关的任务，提供以客户满意度为重心的建议：{{#1731228343114.task_content#}}'
+          context:
+            enabled: true
+            variable_selector:
+              - '1731228343114'
+              - task_content
+          vision:
+            enabled: false
+
+      # 变量聚合器节点
+      - id: '1731228343119'
+        data:
+          type: variable-aggregator
+          title: 建议汇总
+          output_type: string
+          variables:
+            - - '1731228343116'
+              - text
+            - - '1731228343117'
+              - text
+            - - '1731228343118'
+              - text
+
+      # IF/ELSE节点
+      - id: '1731228343120'
+        data:
+          type: if-else
+          title: 职位判断
+          cases:
+            - case_id: 'true'
+              logical_operator: and
+              conditions:
+                - id: 'cond1'
+                  varType: string
+                  variable_selector:
+                    - '1731228343114'
+                    - position
+                  comparison_operator: is
+                  value: manager
+
+      # 模板转换节点（Manager用）
+      - id: '1731228343121'
+        data:
+          type: template-transform
+          title: Manager专用格式
+          template: |
+            ## 面向管理层的任务建议
+
+            ### 概要
+            任务内容：{{ task_content }}
+
+            ### 详细建议
+            {{ advice }}
+
+            ### 行动项目
+            1. 团队组建的研究
+            2. 资源分配的优化
+            3. 日程管理
+            4. 风险分析
+          variables:
+            - value_selector:
+                - '1731228343114'
+                - task_content
+              variable: task_content
+            - value_selector:
+                - '1731228343119'
+                - output
+              variable: advice
+
+      # 模板转换节点（Staff用）
+      - id: '1731228343122'
+        data:
+          type: template-transform
+          title: Staff专用格式
+          template: |
+            ## 面向员工的任务建议
+
+            ### 任务内容
+            {{ task_content }}
+
+            ### 建议要点
+            {{ advice }}
+
+            ### 下一步
+            1. 确认所需技能
+            2. 制作时间线
+            3. 准备向上司汇报
+          variables:
+            - value_selector:
+                - '1731228343114'
+                - task_content
+              variable: task_content
+            - value_selector:
+                - '1731228343119'
+                - output
+              variable: advice
+
+      # 参数提取节点
+      - id: '1731228343123'
+        data:
+          type: parameter-extractor
+          title: 响应解析
+          query:
+            - '1731228343121'
+            - output
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+            completion_params:
+              temperature: 0.3
+          reasoning_mode: prompt
+          parameters:
+            - name: priority_level
+              type: select
+              description: 任务的优先级
+              required: true
+              options:
+                - 高
+                - 中
+                - 低
+            - name: estimated_time
+              type: string
+              description: 预计所需时间
+              required: true
+            - name: key_points
+              type: array[string]
+              description: 主要要点
+              required: true
+          instruction: |
+            请从提供的建议中提取以下信息：
+            1. 任务的优先级
+            2. 预计所需时间
+            3. 重要要点（列表形式）
+
+      # 响应节点
+      - id: '1731228343124'
+        data:
+          type: answer
+          title: 最终响应
+          answer: |
+            {{#1731228343121.output#}}
+            {{#1731228343122.output#}}
+
+            追加分析：
+            优先级: {{#1731228343123.priority_level#}}
+            预计所需时间: {{#1731228343123.estimated_time#}}
+
+            重要要点：
+            {{#1731228343123.key_points#}}
