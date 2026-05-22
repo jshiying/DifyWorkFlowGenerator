@@ -1,0 +1,2240 @@
+prompt:
+  metadata:
+    title: Dify工作流生成提示词
+    version: 2.0.0
+    description: |
+      用于生成Dify工作流文件的提示词定义。
+      v2.0.0 新增：支持5种 app.mode（workflow/advanced-chat/chat/completion/agent-chat）
+      以及4种开始节点类型（start/trigger-schedule/trigger-webhook/trigger-plugin）。
+
+  input_requirements: |
+    请提供以下信息：
+    1. 工作流的目的（例：书籍摘要生成、商品描述创作等）
+    2. 作为输入所需的信息（例：书名、商品名称与特征等）
+    3. 作为输出所期望的格式和内容
+    4. 特殊约束条件（字数限制、语气指定等）
+
+  instructions:
+
+    step0_mode_decision: |
+      ══════════════════════════════════════════════════════
+      第一步：判断 app.mode（必须先执行，再生成任何内容）
+      ══════════════════════════════════════════════════════
+      在生成 YAML 之前，根据用户需求从以下5种模式中选择一种，
+      并在输出 YAML 的第一行用注释标注判断结果和理由：
+      # [mode: workflow] [trigger: start] 判断依据: ...
+
+      ┌──────────────┬──────────────────────────────────────────────────────────┐
+      │ app.mode     │ 判断条件                                                  │
+      ├──────────────┼──────────────────────────────────────────────────────────┤
+      │ workflow     │ • 一次性自动化任务，有明确的数据处理流程                      │
+      │              │ • 节点间依次传递数据，不需要多轮对话记忆                      │
+      │              │ • 关键词：自动化/流水线/批处理/文档处理/定时/Webhook触发       │
+      ├──────────────┼──────────────────────────────────────────────────────────┤
+      │ advanced-    │ • 需要多轮对话记忆                                          │
+      │ chat         │ • 同时需要复杂节点（知识库检索/工具调用/条件分支）             │
+      │              │ • 关键词：聊天机器人+工具/RAG对话助手/有记忆的复杂助手         │
+      ├──────────────┼──────────────────────────────────────────────────────────┤
+      │ chat         │ • 需要多轮对话                                              │
+      │              │ • 逻辑简单，只需一个系统提示词                               │
+      │              │ • 不需要工具调用/知识库/复杂节点图                            │
+      │              │ • 关键词：简单问答/FAQ/角色扮演/普通聊天机器人                 │
+      ├──────────────┼──────────────────────────────────────────────────────────┤
+      │ completion   │ • 一次性输入→输出，表单填写式交互                            │
+      │              │ • 有固定的输入字段（商品名、文章标题等）                       │
+      │              │ • 不需要多轮对话，单次执行                                   │
+      │              │ • 关键词：生成/撰写/翻译/总结（只填一次表单后执行）            │
+      ├──────────────┼──────────────────────────────────────────────────────────┤
+      │ agent-chat   │ • 需要 Agent 自主决策选择工具完成任务                        │
+      │              │ • 任务路径不确定，需要推理规划                               │
+      │              │ • 关键词：让AI自己决定/自动搜索并完成/自主规划/智能体          │
+      └──────────────┴──────────────────────────────────────────────────────────┘
+
+    step1_trigger_decision: |
+      ══════════════════════════════════════════════════════
+      第二步：判断开始节点类型（仅 workflow/advanced-chat 执行）
+      ══════════════════════════════════════════════════════
+      chat / completion / agent-chat 模式没有节点图，跳过此步骤。
+
+      ┌────────────────────┬────────────────────────────────────────────────────┐
+      │ 开始节点类型        │ 判断条件                                            │
+      ├────────────────────┼────────────────────────────────────────────────────┤
+      │ start              │ 默认选项。用户需要每次手动填写参数后触发。              │
+      │（手动触发）         │ 无特殊触发关键词时使用此类型。                          │
+      ├────────────────────┼────────────────────────────────────────────────────┤
+      │ trigger-schedule   │ 关键词：定时/每天/每周/每月/每小时/cron               │
+      │（定时触发）         │         自动执行/计划任务/定期运行                     │
+      │                    │ 特征：不需要用户手动触发，按时间表自动执行。             │
+      │                    │ 输出变量：trigger_time(string) / timestamp(number)    │
+      ├────────────────────┼────────────────────────────────────────────────────┤
+      │ trigger-webhook    │ 关键词：webhook/回调/外部系统调用/API触发              │
+      │（Webhook触发）      │         接收通知/GitHub事件/第三方推送/接收消息        │
+      │                    │ 特征：由外部系统主动发起 HTTP 请求触发。               │
+      │                    │ 输出变量：body(object)/headers(object)               │
+      │                    │          method(string)/query(object)               │
+      ├────────────────────┼────────────────────────────────────────────────────┤
+      │ trigger-plugin     │ 关键词：邮件触发/消息到达/插件事件/订阅消息队列         │
+      │（插件触发）         │ 特征：由已安装的插件产生的事件驱动执行。                │
+      │                    │ 输出变量：由具体插件定义（通用占位用 content）           │
+      └────────────────────┴────────────────────────────────────────────────────┘
+
+      ⚠️ 重要约束：
+      - trigger-* 节点与 start 节点不能共存，只能选其一作为入口
+      - 使用 trigger-* 时，下游节点引用触发器输出的格式为：
+        {{#触发器节点ID.输出变量名#}}
+      - trigger-schedule 没有用户输入变量，不能定义 variables 字段
+
+    step2_generate: |
+      ══════════════════════════════════════════════════════
+      第三步：按判断结果选择对应结构生成
+      ══════════════════════════════════════════════════════
+      根据 step0 和 step1 的结果，从下表选择对应结构：
+
+      ┌──────────────────────────────────┬────────────────────────────────────┐
+      │ 组合                             │ 结构要点                             │
+      ├──────────────────────────────────┼────────────────────────────────────┤
+      │ workflow + start        [A1]     │ start → 处理节点 → end              │
+      │ workflow + trigger-schedule [A2] │ trigger-schedule → 处理 → end       │
+      │ workflow + trigger-webhook  [A3] │ trigger-webhook → 处理 → end        │
+      │ workflow + trigger-plugin   [A4] │ trigger-plugin → 处理 → end         │
+      ├──────────────────────────────────┼────────────────────────────────────┤
+      │ advanced-chat + start       [B1] │ start → 处理节点 → answer           │
+      │ advanced-chat + trigger-sch [B2] │ trigger-schedule → 处理 → answer    │
+      │ advanced-chat + trigger-web [B3] │ trigger-webhook → 处理 → answer     │
+      │ advanced-chat + trigger-plg [B4] │ trigger-plugin → 处理 → answer      │
+      ├──────────────────────────────────┼────────────────────────────────────┤
+      │ chat                        [C1] │ 无节点图，只生成 model_config        │
+      │ completion                  [C2] │ 无节点图，生成 user_input_form       │
+      │ agent-chat                  [C3] │ 无节点图，生成 agent_mode 配置       │
+      └──────────────────────────────────┴────────────────────────────────────┘
+
+      各模式关键差异速查：
+      - workflow   → 终止节点用 end，有 workflow.graph
+      - advanced-chat → 终止节点用 answer（流式），有 workflow.graph，LLM节点需配 memory
+      - chat/completion/agent-chat → 无 workflow 字段，只有 model_config
+      - completion → model.mode 用 completion（其余用 chat），有 user_input_form
+      - agent-chat → model_config.agent_mode.enabled: true
+
+    workflow_overview: |
+      根据所提供的需求，按照 step0~step2 的判断结果，生成对应类型的 Dify 应用配置文件（YAML格式）：
+      - workflow / advanced-chat：生成包含节点图（graph.nodes + graph.edges）的工作流
+      - chat / completion / agent-chat：生成无节点图的应用配置（model_config）
+      - 节点间按顺序执行连接（如有指定，也可并行执行）
+      - 自动化从输入到输出的一系列处理
+
+    required_structure:
+      app_info:
+        - mode: 根据 step0 判断，从以下5种中选一：
+            workflow      # 一次性自动化工作流（有节点图，end结束）
+            advanced-chat # Chatflow多轮对话工作流（有节点图，answer结束）
+            chat          # 基础对话（无节点图，只有model_config）
+            completion    # 文本生成（无节点图，有user_input_form）
+            agent-chat    # Agent对话（无节点图，有agent_mode）
+        - name: 设置体现目的的名称
+        - version: 使用0.1.3
+
+      trigger_nodes:  # 新增：开始节点的4种类型（workflow/advanced-chat时选其一）
+
+        start_node:  # 默认，用户手动触发
+          - id: 唯一ID
+          - type: start
+          - data:
+              title: 开始
+              variables:  # 用户输入变量（必填，至少一个）
+                - type: text-input  # text-input|paragraph|number|select|file|file-list
+                  variable: 变量名
+                  label: 显示标签
+                  required: true
+                  max_length: 500
+
+        trigger_schedule_node:  # 定时触发，无需用户输入
+          - id: 唯一ID
+          - type: trigger-schedule
+          - data:
+              title: 定时触发
+              cron: "0 9 * * 1-5"      # 标准5段cron表达式（工作日9点）
+              timezone: Asia/Shanghai  # 时区
+          # 输出变量（下游节点引用格式：{{#节点ID.变量名#}}）：
+          # - trigger_time: string  ← 触发时间（YYYY-MM-DD HH:mm:ss）
+          # - timestamp: number     ← Unix时间戳
+
+        trigger_webhook_node:  # 外部HTTP请求触发
+          - id: 唯一ID
+          - type: trigger-webhook
+          - data:
+              title: Webhook触发
+              method: post  # get | post | any
+          # 输出变量：
+          # - body: object    ← 请求体（JSON已解析）
+          # - headers: object ← 请求头
+          # - method: string  ← HTTP方法
+          # - query: object   ← URL查询参数
+
+        trigger_plugin_node:  # 插件事件触发
+          - id: 唯一ID
+          - type: trigger-plugin
+          - data:
+              title: 插件触发
+              plugin_id: 插件提供商/插件名称  # 如: langgenius/email/email
+              event: 事件名称               # 如: email_received
+          # 输出变量：由具体插件定义，通用占位用 content
+
+      no_graph_modes:  # 新增：无节点图模式的顶层结构（chat/completion/agent-chat）
+
+        chat_structure:
+          app:
+            mode: chat
+            name: 应用名称
+            version: 0.1.3
+          kind: app
+          model_config:
+            model:
+              provider: openai
+              name: gpt-5.4
+              mode: chat
+              completion_params:
+                temperature: 0.7
+            pre_prompt: |
+              系统提示词内容
+            opening_statement: 开场白（可选）
+            suggested_questions: []  # 推荐问题（可选）
+          # ⚠️ 没有 workflow 字段
+
+        completion_structure:
+          app:
+            mode: completion
+            name: 应用名称
+            version: 0.1.3
+          kind: app
+          model_config:
+            model:
+              provider: openai
+              name: gpt-5.4
+              mode: completion  # ← completion模式固定用completion
+              completion_params:
+                temperature: 0.7
+            pre_prompt: |
+              请根据以下信息生成内容：
+              字段1：{{variable1}}
+              字段2：{{variable2}}
+            user_input_form:  # ← completion专有，定义用户表单字段
+              - text-input:
+                  label: 字段1标签
+                  variable: variable1
+                  required: true
+                  max_length: 200
+              - paragraph:
+                  label: 字段2标签
+                  variable: variable2
+                  required: true
+          # ⚠️ 没有 workflow 字段
+
+        agent_chat_structure:
+          app:
+            mode: agent-chat
+            name: 应用名称
+            version: 0.1.3
+          kind: app
+          model_config:
+            model:
+              provider: openai
+              name: gpt-5.4
+              mode: chat
+              completion_params:
+                temperature: 0.7
+            agent_mode:
+              enabled: true
+              strategy: function_call  # function_call | react
+              max_iteration: 5
+              tools:
+                - provider_type: builtin
+                  provider_id: 工具提供商/工具名
+                  tool_name: 工具名称
+                  enabled: true
+                  config: {}
+            pre_prompt: |
+              你是一个智能助手，可以使用工具完成用户任务。
+          # ⚠️ 没有 workflow 字段
+
+      workflow_graph:
+        edges:
+          - source: 开始节点的ID（例：'1731228343114'）
+            target: LLM节点的ID（例：'1731229438627'）
+            data:
+              sourceType: start
+              targetType: llm
+          - source: LLM节点的ID（例：'1731229438627'）
+            target: 结束节点的ID（例：'1731228345560'）
+            data:
+              sourceType: llm
+              targetType: end
+          - source: 问题分类器节点的ID
+            sourceHandle: '1'  # 用于问题分类1
+            target: 目标节点ID1
+            targetHandle: target
+            data:
+              sourceType: question-classifier
+              targetType: [目标节点类型]
+          - source: 问题分类器节点的ID
+            sourceHandle: '2'  # 用于问题分类2
+            target: 目标节点ID2
+            targetHandle: target
+            data:
+              sourceType: question-classifier
+              targetType: [目标节点类型]
+          - source: [IF/ELSE节点ID]
+            target: [目标节点ID]
+            data:
+              sourceType: if-else
+              targetType: [目标节点类型]
+            sourceHandle: 'true'  # IF条件成立时
+          - source: [IF/ELSE节点ID]
+            target: [另一个目标节点ID]
+            data:
+              sourceType: if-else
+              targetType: [目标节点类型]
+            sourceHandle: 'false'  # ELSE条件时
+          - source: [工具节点ID]
+            target: [目标节点ID]
+            data:
+              sourceType: tool
+              targetType: [目标节点类型]
+
+        nodes:
+          start_node:
+            - id: 唯一ID
+            - type: start
+            - variables:
+              # 文件输入的示例
+              - type: file
+                variable: input_document
+                label: 文档
+                required: true
+                max_length: 48
+                allowed_file_types:
+                  - document
+                allowed_file_upload_methods:
+                  - local_file
+                  - remote_url
+
+              # 数值输入的示例
+              - type: number
+                variable: input_number
+                label: 数值
+                required: true
+                min: 0
+                max: 1000000
+
+              # 段落输入的示例
+              - type: paragraph
+                variable: danraku
+                label: 段落
+                required: true
+                max_length: 48
+                options: []
+
+              # 短文输入的示例
+              - type: text-input
+                variable: tanbun
+                label: 短文
+                required: true
+                max_length: 48
+                options: []
+
+          llm_node:
+            - id: 唯一ID
+            - type: llm
+            - model:
+              - provider: openai
+              - name: gpt-5.4
+              - mode: chat
+              - completion_params:
+                - temperature: 生成时的温度设置
+            - prompt_template:
+              - id: 唯一ID（例'prompt1'）
+                role: system
+                text: 用单引号括住的提示词文本
+            - context: # 仅当上游有 knowledge-retrieval 节点时启用，否则设为 disabled
+              - enabled: true/false  # 有知识库节点时为true，否则为false
+              - variable_selector: 仅在 enabled: true 时指向 knowledge-retrieval 节点的输出（否则设为[]）
+            - vision:
+              - enabled: false
+
+          end_node:
+            - id: 唯一ID
+            - type: end
+            - outputs: #输出变量的定义
+              - input_data: 输入数据
+              - generated_text: 生成的文本
+
+          http_request_node:
+            - id: 唯一ID
+            - type: http-request
+            - data:
+              - authorization:
+                  config: null
+                  type: no-auth/basic/bearer  # 指定认证类型
+              - body:
+                  type: json/form-data/x-www-form-urlencoded
+                  data:  # JSON格式的示例
+                    - id: [键值ID]
+                      key: [键名]
+                      type: text
+                      value: [JSON格式的值]
+              - headers: Content-Type:[content-type]  # 例：application/json
+              - method: get/post/put/delete
+              - url: [API端点URL]
+              - timeout:
+                  max_connect_timeout: [连接超时秒数]
+                  max_read_timeout: [读取超时秒数]
+                  max_write_timeout: [写入超时秒数]
+              - title: HTTP请求
+              - variables: []  # 根据需要定义变量
+
+          json_parse_node:
+            - id: 唯一ID
+            - type: tool
+            - data:
+              - provider_id: json_process
+              - provider_name: json_process
+              - provider_type: builtin
+              - title: JSON Parse
+              - tool_configurations:
+                  ensure_ascii: 1
+              - tool_name: parse
+              - tool_parameters:
+                  content:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'
+                  json_filter:
+                    type: mixed
+                    value: [要提取的JSON键]
+
+          question_classifier_node:
+            - id: 唯一ID
+            - type: question-classifier
+            - data:
+              - title: 问题分类器
+              - model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+              - query_variable_selector:
+                  - [输入节点ID]
+                  - [变量名]
+              - classes:
+                  - id: [类别ID]
+                    name: [分类名]
+
+          knowledge_retrieval_node:
+            - id: 唯一ID
+            - type: knowledge-retrieval
+            - data:
+              - title: 知识获取
+              - dataset_ids:
+                  - [数据集ID]
+              - retrieval_mode: multiple
+              - multiple_retrieval_config:
+                  reranking_enable: true
+                  reranking_mode: weighted_score
+                  top_k: 4
+                  weights:
+                    vector_setting:
+                      embedding_model_name: text-embedding-3-large
+                      embedding_provider_name: openai
+                      vector_weight: 1
+                    keyword_setting:
+                      keyword_weight: 0
+              - query_variable_selector:
+                  - [输入节点ID]
+                  - [变量名]
+
+          code_node:
+            - id: 唯一ID
+            - type: code
+            - data:
+              - code_language: python3
+              - code: "def main(arg1: str) -> dict:\nreturn {\n\"task_url\": \"http://example.com/task/\"+arg1,\n}" # 编写Python代码并用双引号括住。
+              - title: Python代码执行
+              - variables: []  # 根据需要定义变量
+              - outputs:  # 输出变量的定义（必填）
+                task_url:  # 变量名
+                  children: null
+                  type: string  # 变量的类型
+              - variables:  # 输入变量的定义（必填）
+                - value_selector:  # 来自其他节点的输入
+                  - [输入节点ID]
+                  - [变量名]
+                  variable: arg1  # 函数的参数名
+
+          if_else_node:
+            - id: 唯一ID
+            - type: if-else
+            - data:
+                title: 条件分支
+                cases:
+                  - case_id: 'true'
+                    logical_operator: and
+                    conditions:
+                      - id: 5d3c1fa4-e26c-4f4b-a3a9-d4c32d63d5f8
+                        varType: number
+                        variable_selector:
+                          - [输入节点ID]
+                          - [变量名]
+                        comparison_operator: 'contains'  # 遵循ComparisonOperator枚举类型
+                        value: '5'
+                        numberVarType: constant
+                      - id: f764d294-6b89-46a2-9486-8b2c067e58ff
+                        varType: string
+                        variable_selector:
+                          - [输入节点ID]
+                          - [变量名]
+                        key: 'subKey'
+                        comparison_operator: 'contains'
+                        value: '测试'
+                        sub_variable_condition:
+                          case_id: 'sub1'
+                          logical_operator: and
+                          conditions:
+                            - id: 'sub-condition-1'
+                              varType: string
+                              comparison_operator: 'start with'
+                              value: 'prefix'
+
+          variable_aggregator_node:
+            - id: 唯一ID
+            - type: variable-aggregator
+            - data:
+              - title: 变量聚合器
+              - output_type: string/number/boolean  # 输出变量的类型
+              - variables:                         # 要聚合的变量列表
+                - - [输入节点ID1]
+                  - [变量名1]
+                - - [输入节点ID2]
+                  - [变量名2]
+
+          document_extractor_node:
+            - id: 唯一ID
+            - type: document-extractor
+            - data:
+              - title: 文本提取工具
+              - is_array_file: false
+              - variable_selector:
+                - [输入节点ID]
+                - [变量名]
+
+          template_transform_node:
+            - id: 唯一ID
+            - type: template-transform
+            - data:
+                title: 模板转换
+                template: 模板字符串（Jinja2格式）
+                variables:
+                  - value_selector:  # 指定输入变量
+                    - [输入节点ID]
+                    - [变量名]
+                    variable: [在模板中使用的变量名]
+                outputs:
+                  output:  # 固定的输出变量名
+                    type: string  # 始终为string类型
+
+          answer_node:
+            - id: 唯一ID
+            - type: answer
+            - data:
+                title: 响应节点
+                answer: 响应文本或变量引用
+                variables: []  # 根据需要定义变量
+
+          parameter_extractor_node:
+            - id: 唯一ID（必填）
+            - type: parameter-extractor（固定）
+            - data:
+              - title: 参数提取
+              - query: # 指定输入变量（必填）
+                - [输入节点ID]
+                - [变量名]
+              - model: # 模型设置（必填）
+                - provider: 提供商名称
+                - name: 模型名称
+                - mode: chat/completion
+                - completion_params:
+                  - temperature: 0.0-1.0
+              - reasoning_mode: # 推理模式（必填）
+                - prompt: 基于提示词
+                - function_call: 函数调用
+              - parameters: # 提取参数定义（必填）
+                - name: 参数名
+                  type: 参数类型
+                  description: 说明文
+                  required: true/false
+                  options: # select类型的选项
+                    - 选项1
+                    - 选项2
+              - instruction: 提示词字符串
+              - memory: # 内存设置（可选）
+                - role_prefix:
+                  - user: 用户前缀
+                  - assistant: 助手前缀
+              - vision: # 图像处理设置（可选）
+                - enabled: true/false
+                - configs: 图像设置
+
+          youtube_transcript_node:
+            - id: 唯一ID
+            - data:
+                type: tool
+                title: Free YouTube Transcript API
+                provider_name: transcript
+                provider_id: transcript
+                provider_type: builtin
+                tool_label: Free YouTube Transcript API
+                tool_name: free_youtube_transcript
+                tool_configurations:
+                  cookies: null
+                  format: text
+                  language: ja
+                  preserve_formatting: 0
+                  proxy: null
+                tool_parameters:
+                  video_id:
+                    type: mixed
+                    value: YouTube视频ID或变量引用
+                outputs:
+                  text:  # 字幕文本的输出变量
+                    type: string
+
+          jina_reader_node:
+            - id: 唯一ID
+            - type: tool
+            - data:
+              - provider_id: jina
+              - provider_name: jina
+              - provider_type: builtin
+              - title: JinaReader
+              - tool_configurations:
+                  gather_all_images_at_the_end: 0  # 图像收集设置
+                  gather_all_links_at_the_end: 0   # 链接收集设置
+                  image_caption: 0                 # 图像说明设置
+                  no_cache: 0                      # 禁用缓存
+                  proxy_server: null               # 代理服务器设置
+                  summary: 0                       # 摘要功能
+                  target_selector: null            # 目标元素选择器
+                  wait_for_selector: null          # 等待元素选择器
+              - tool_label: JinaReader
+              - tool_name: jina_reader
+              - tool_parameters:
+                  url:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'  # URL输入
+
+          tavily_search_node:
+            - id: 唯一ID
+            - type: tool
+            - data:
+              - provider_id: tavily
+              - provider_name: tavily
+              - provider_type: builtin
+              - title: TavilySearch
+              - tool_configurations:
+                  exclude_domains: null      # 排除域名
+                  include_domains: null      # 包含域名
+                  include_answer: null       # 包含回答
+                  include_images: null       # 包含图像
+                  include_raw_content: null  # 包含原始内容
+                  max_results: 3             # 最大结果数
+                  search_depth: basic        # 搜索深度
+              - tool_label: TavilySearch
+              - tool_name: tavily_search
+              - tool_parameters:
+                  query:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'
+
+    usage_guide: |
+      通用事项：
+      - 节点ID必须是唯一的ID。
+      - 节点ID必须以1700000000000开头。
+      - 节点ID必须在1700000000000到1799999999999的范围内。
+
+      工作流使用方法：
+      1. 开始节点
+         使用场景:
+         - 作为工作流的起始点
+         - 接受用户输入
+         - 将输入的信息保存为变量
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: start（固定）
+         - variables: 输入变量的数组（必填）
+           - type: 变量的类型（必填）
+           - variable: 变量名（必填）
+           - label: 显示标签（必填）
+           - required: 是否为必填输入（必填）
+           - 其他设置（根据类型所需）
+
+         变量类型与专有设置:
+         - file（文件输入）:
+           - allowed_file_types: 允许的文件类型
+             - document: 文档文件
+             - image: 图像文件
+             - audio: 音频文件
+             - video: 视频文件
+           - allowed_file_upload_methods: 上传方式
+             - local_file: 本地文件
+             - remote_url: 远程URL
+           - max_length: 最大文件名长度
+           - required: 是否为必填项
+         - number（数值输入）:
+           - min: 最小值（可选）
+           - max: 最大值（可选）
+         - paragraph（段落文本）:
+           - max_length: 最大字数（可选）
+           - options: 选项（可选）
+         - text-input（短文本）:
+           - max_length: 最大字数（可选）
+           - options: 选项（可选）
+
+      2. LLM节点
+         使用场景:
+         - 文本生成和响应创建
+         - 输入文本的加工和转换
+         - 生成问题的回答
+         结构:
+         - id: 唯一ID（必填）
+         - type: llm（固定）
+         - model:（必填）
+           - provider: openai（固定）
+           - name: gpt-5.4（固定）
+           - mode: chat（固定）
+           - completion_params:
+             - temperature: 0.0-1.0的值（必填）
+         - prompt_template:（必填）
+           - role: system（固定）
+           - text: 提示词文本（必填）
+         - context:（条件可选）
+           - enabled: true/false
+             - true：当上游存在 knowledge-retrieval 节点时使用
+             - false：无知识库节点时设为 false，variable_selector 设为 []
+           - variable_selector: 指向上游 knowledge-retrieval 节点的输出（enabled 为 false 时设为 []）
+         - vision:
+           - enabled: false（固定）
+         注意事项:
+         - 提示词必须用单引号括住
+         - 只能使用系统角色的提示词
+         - 变量引用格式: {{#节点ID.变量名#}}
+         - 普通变量传递：直接在 prompt_template.text 中用 {{#节点ID.变量名#}} 引用，无需通过 context 传入
+         - context 专用于知识库：仅当上游有 knowledge-retrieval 节点时，enabled 设为 true，variable_selector 指向该节点输出
+         - 无知识库时：context.enabled 设为 false，variable_selector 设为 []
+         
+      3. 结束节点
+         使用场景:
+         - 作为工作流的结束点
+         - 定义处理结果的输出
+         - 向后续系统传递数据
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: end（固定）
+         - outputs:（必填）
+           - value_selector:（必填）
+             - [节点ID]
+             - [变量名]
+           - variable: 输出变量名（必填）
+
+         注意事项:
+         - 至少需要一个输出变量
+         - 可定义多个输出变量
+
+      4. HTTP请求节点
+         使用场景:
+         - 与外部API联动
+         - 数据的发送和接收
+         - 发送Webhook通知
+         - 与外部服务集成
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: http-request（固定）
+         - data:（必填）
+           - authorization:（必填）
+             - config: 认证设置（可选）
+             - type: 认证类型（必填）
+               - no-auth: 无认证
+               - basic: Basic认证
+               - bearer: Bearer认证
+           - body:（必填）
+             - type: 请求体类型（必填）
+               - json: JSON格式
+               - form-data: 多部分表单
+               - x-www-form-urlencoded: URL编码格式
+             - data: 请求数据（必填）
+           - headers: 请求头信息（必填）
+           - method: HTTP方法（必填）
+           - url: 端点URL（必填）
+           - timeout:（可选）
+             - max_connect_timeout: 连接超时秒数
+             - max_read_timeout: 读取超时秒数
+             - max_write_timeout: 写入超时秒数
+           - title: 节点标题（必填）
+           - variables: 变量定义（可选）
+
+         注意事项:
+         HTTP方法:
+         - GET: 获取资源
+           - 通过查询参数进行搜索
+           - 可缓存
+         - POST: 发送/创建数据
+           - 资源的创建
+           - 发送大量数据
+         - PUT: 更新/创建资源
+           - 完全替换
+           - 具有幂等性
+         - PATCH: 部分更新资源
+           - 更新部分字段
+           - 不具有幂等性
+         - DELETE: 删除资源
+           - 删除指定资源
+         - HEAD: 获取请求头信息
+           - 无响应体
+
+         变量引用:
+         - 格式: {{#[节点ID].[变量名]#}}
+         - 可引用其他节点的输出
+         - 可通过JSON路径引用嵌套的值
+
+         超时设置:
+         - 0表示无限制
+         - 可以毫秒为单位指定
+         - 可在各阶段单独设置
+
+      5. JSON Parse节点
+         使用场景:
+         - 解析JSON数据
+         - 提取特定键
+         - 处理API响应
+         - 加工结构化数据
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: tool（固定）
+         - data:（必填）
+           - provider_id: json_process（固定）
+           - provider_name: json_process（固定）
+           - provider_type: builtin（固定）
+           - title: 节点标题（必填）
+           - tool_configurations:（必填）
+             - ensure_ascii: 1或0（必填）
+           - tool_name: parse（固定）
+           - tool_parameters:（必填）
+             - content:（必填）
+               - type: mixed（固定）
+               - value: 要解析的JSON（必填）
+             - json_filter:（必填）
+               - type: mixed（固定）
+               - value: 提取键（必填）
+
+         注意事项:
+         数据格式:
+         - content: JSON字符串或对象
+           - 可引用其他节点的输出
+           - 变量引用格式: {{#[节点ID].[变量名]#}}
+         
+         字符编码:
+         - ensure_ascii: 
+           - 1: 仅使用ASCII字符
+           - 0: 允许Unicode字符
+         
+         过滤:
+         - 单一键: "key"
+         - 嵌套键: "key1.key2"
+         - 数组索引: "array[0]"
+         - 多个键: ["key1", "key2"]
+         - 条件: "key[?(@.field=='value')]"
+
+      6. 问题分类器节点
+         使用场景:
+         - 自动分类问题内容
+         - 判别意图
+         - 优化响应流程
+         - 控制多路径处理
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: question-classifier（固定）
+         - data:（必填）
+           - title: 节点标题（必填）
+           - model:（必填）
+             - provider: openai（固定）
+             - name: gpt-5.4（固定）
+             - mode: chat（固定）
+             - completion_params:（必填）
+               - temperature: 0.0-1.0的值
+           - query_variable_selector:（必填）
+             - [输入节点ID]
+             - [变量名]
+           - classes:（必填）
+             - id: 类别ID（必填）
+             - name: 分类名（必填）
+
+         注意事项:
+         分支模式:
+         1. 使用共同LLM模式:
+            - 类别1的问题 → 知识获取1 → 共同LLM → 结束
+            - 类别2的问题 → 知识获取2 → 共同LLM → 结束
+            - 其他问题 → 直接到结束节点
+         
+         2. 使用各自LLM模式:
+            - 类别1的问题 → 知识获取1 → LLM1 → 结束1
+            - 类别2的问题 → 知识获取2 → LLM2 → 结束2
+            - 其他问题 → 直接到结束节点
+
+         边连接设置:
+         - sourceHandle: 问题分类的ID（'1', '2'等）
+         - targetHandle: 指定'target'
+         - sourceType: question-classifier
+         - targetType: 连接目标的节点类型
+
+         分类结果的利用:
+         - 根据各类别选择合适的知识库
+         - 按类别使用不同的提示词
+         - 根据分类结果实现条件分支
+
+      7. 知识获取节点
+         使用场景:
+         - 从数据集中搜索相关信息
+         - 获取与问题相关的知识
+         - 基于上下文生成响应
+         - 整合来自多个来源的信息
+
+         结构:
+         - id: 唯一ID（必填）
+         - type: knowledge-retrieval（固定）
+         - data:（必填）
+           - title: 节点标题（必填）
+           - dataset_ids: 数据集ID的数组（必填）
+           - retrieval_mode: multiple（固定）
+           - multiple_retrieval_config:（必填）
+             - reranking_enable: true/false（必填）
+             - reranking_mode: weighted_score（必填）
+             - top_k: 获取件数（必填）
+             - weights:（必填）
+               - vector_setting:（必填）
+                 - embedding_model_name: 模型名称（必填）
+                 - embedding_provider_name: 提供商名称（必填）
+                 - vector_weight: 向量权重（必填）
+               - keyword_setting:（必填）
+                 - keyword_weight: 关键字权重（必填）
+           - query_variable_selector:（必填）
+             - [输入节点ID]
+             - [变量名]
+
+         注意事项:
+         搜索设置:
+         - embedding_model_name:
+           - text-embedding-3-large: 高精度模型
+           - text-embedding-ada-002: 标准模型
+         
+         权重设置:
+         - vector_weight: 0.0-1.0
+           - 1.0: 仅向量搜索
+           - 0.0: 仅关键字搜索
+         - keyword_weight: 0.0-1.0
+           - 高值: 重视关键字匹配
+           - 低值: 重视语义搜索
+         
+         搜索结果:
+         - top_k: 获取的结果数
+           - 推荐值: 3-5
+           - 最大值: 10
+         - reranking: 搜索结果的重排序
+           - weighted_score: 基于分数的权重
+           - 可调整精度与响应时间的平衡
+           
+      8. 代码节点
+          使用场景:
+          - 实现自定义逻辑
+          - 数据的加工和转换
+          - 与外部系统联动
+          - 控制条件分支
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: code（固定）
+          - data:（必填）
+            - code_language: python3（固定）
+            - code: Python代码（必填，用双引号括住）
+            - title: 节点标题（必填）
+            - outputs:（必填）
+              - [变量名]:
+                - type: 变量的类型（必填）
+                - children: null（固定）
+            - variables:（必填）
+              - value_selector:（必填）
+                - [输入节点ID]
+                - [变量名]
+              - variable: 函数的参数名（必填）
+
+          注意事项:
+            - 不能使用boolean类型。请用number类型的0/1代替。
+          可使用的库:
+          - 基础库:
+            - datetime: 日期时间处理
+            - math: 数学函数
+            - random: 随机数生成
+            - re: 正则表达式
+            - string: 字符串操作
+          - 系统相关:
+            - sys: 系统操作
+            - os: OS操作
+            - time: 时间处理
+            - traceback: 错误追踪
+            - uuid: 唯一标识符生成
+          - 数据处理:
+            - json: JSON处理
+            - base64: 编码/解码
+            - collections: 集合类型
+            - itertools: 迭代器操作
+          - 加密/哈希:
+            - hashlib: 哈希函数
+            - hmac: 消息认证
+            - binascii: 二进制/ASCII转换
+          - 函数操作:
+            - functools: 函数工具
+            - operator: 运算符接口
+
+          输出变量的类型:
+          - 基础类型:
+            - string: 字符串类型
+            - number: 数值类型
+          - 特殊类型:
+            - secret: 机密信息类型
+            - object: 对象类型
+            - file: 文件类型
+          - 数组类型:
+            - array: 基础数组类型
+            - array[string]: 字符串数组
+            - array[number]: 数值数组
+            - array[object]: 对象数组
+            - array[file]: 文件数组
+          - 其他:
+            - any: 任意类型
+
+          代码实现规则:
+          - 以main函数实现（必填）
+          - 添加类型注解（必填）
+          - 返回值为字典格式（必填）
+          - 用双引号括住整个代码
+          - 内部的双引号需转义
+          - 换行用\n表示
+          实现示例:
+          ```python
+          def main(arg1: str) -> dict:
+              return {
+                  "result": arg1[7:-3],
+              }
+          ```
+
+      9. IF/ELSE节点
+          使用场景:
+          - 基于条件的流程控制
+          - 多路径分支处理
+          - 根据数据值分配处理
+          - 实现条件逻辑
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: if-else（固定）
+          - data:（必填）
+            - title: 节点标题（必填）
+            - cases:（必填）
+              - case_id: 条件ID（必填）
+              - logical_operator: and/or（必填）
+              - conditions:（必填）
+                - id: 条件的ID（必填）
+                - varType: 变量的类型（必填）
+                - variable_selector:（必填）
+                  - [输入节点ID]
+                  - [变量名]
+                - comparison_operator: 比较运算符（必填）
+                - value: 比较值（必填）
+                - numberVarType: 数值比较类型（数值类型时必填）
+                - key: 子变量的键（可选）
+                - sub_variable_condition: 子变量的条件（可选）
+
+          注意事项:
+          比较运算符:
+          - 字符串比较:
+            - contains: 字符串中包含指定值
+            - not contains: 字符串中不包含指定值
+            - start with: 以指定值开头
+            - end with: 以指定值结尾
+            - is: 完全匹配
+            - is not: 完全不匹配
+          - 数值比较:
+            - =: 等于
+            - ≠: 不等于
+            - >: 大于
+            - <: 小于
+            - ≥: 大于等于
+            - ≤: 小于等于
+          - 存在检查:
+            - empty: 为空
+            - not empty: 不为空
+            - is null: 为null值
+            - is not null: 不为null值
+          - 列表操作:
+            - in: 存在于列表中
+            - not in: 不存在于列表中
+            - all of: 满足所有条件
+          - 其他:
+            - exists: 存在
+            - not exists: 不存在
+
+          变量类型:
+          - number: 数值类型
+            - numberVarType: constant/variable
+          - string: 字符串类型
+          - boolean: 布尔值类型
+
+          边连接:
+          - sourceHandle: 'true'
+            - IF条件成立时的连接
+          - sourceHandle: 'false'
+            - ELSE条件时的连接
+          - sourceType: if-else
+          - targetType: 连接目标的节点类型
+
+      10. 变量聚合器节点
+          使用场景:
+          - 汇总来自多个节点的输出
+          - 整合来自不同路径的结果
+          - 分支处理后的数据整合
+          - 合并来自多个来源的数据
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: variable-aggregator（固定）
+          - data:（必填）
+            - title: 节点标题（必填）
+            - output_type: 输出变量的类型（必填）
+              - string: 字符串类型
+              - number: 数值类型
+              - boolean: 布尔值类型
+            - variables: 要聚合的变量列表（必填）
+              - [输入节点ID, 变量名]的数组
+
+          注意事项:
+          数据聚合模式:
+          - IF/ELSE分支后的整合:
+            - 来自true分支的输出
+            - 来自false分支的输出
+            - 整合为单一输出流
+          
+          - 并行处理结果的整合:
+            - 来自多个LLM节点的响应
+            - 多个API调用的结果
+            - 来自不同处理路径的输出
+          
+          变量的顺序:
+          - 列表的顺序影响输出顺序
+          - 先指定的变量优先
+          - 后续变量按条件使用
+
+          类型转换规则:
+          - 转换为string类型:
+            - number: 转换为字符串表示
+            - boolean: 转换为"true"/"false"
+          - 转换为number类型:
+            - string: 仅允许数值表示
+            - boolean: 转换为1/0
+          - 转换为boolean类型:
+            - string: 仅允许"true"/"false"
+            - number: 非0即为true
+
+      11. 文档提取器节点
+          使用场景:
+          - 从文档中提取文本
+          - 解析文件内容
+          - 文本数据的预处理
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: document-extractor（固定）
+          - data:
+            - title: 节点标题（必填）
+            - is_array_file: 是否为数组输入（必填）
+            - variable_selector: 指定输入变量（必填）
+              - [输入节点ID]
+              - [变量名]
+
+      12. 模板转换节点
+          使用场景:
+          - 向模板字符串中嵌入变量
+          - 动态消息生成
+          - 条件文本生成
+          - 数组数据的字符串化
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: template-transform（固定）
+          - data:
+              title: 节点标题（必填）
+              template: Jinja2格式的模板（必填）
+              variables: 输入变量的数组（必填）
+                - value_selector: 变量的引用源
+                  - [输入节点ID]
+                  - [变量名]
+                  variable: 在模板中使用的变量名
+
+          模板语法:
+          - 变量引用: 
+            - 基本形式: {{ 变量名 }}
+            - 使用过滤器: {{ 变量名|upper }}
+          - 条件分支:
+            ```
+            {% if 条件 %}
+              条件成立时的字符串
+            {% else %}
+              条件不成立时的字符串
+            {% endif %}
+            ```
+          - 循环处理:
+            ```
+            {% for item in items %}
+              {{ item }}
+            {% endfor %}
+            ```
+
+          输入变量的类型:
+          - string: 字符串
+          - number: 数值
+          - object: 对象
+          - array: 数组
+          - arrayNumber: 数值数组
+          - arrayString: 字符串数组
+          - arrayObject: 对象数组
+
+          输出:
+          - output: 生成的字符串（固定为string类型）
+
+      13. 响应节点
+          使用场景:
+          - 工作流的响应输出
+          - 显示LLM输出
+          - 显示变量值
+          - 确认中间结果
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: answer（固定）
+          - data:
+              title: 节点标题（必填）
+              answer: 响应文本（必填）
+                - 固定文本
+                - 变量引用: {{#节点ID.变量名#}}
+              variables: []  # 可选
+
+          注意事项:
+          - 变量引用:
+            - 格式: {{#节点ID.变量名#}}
+            - 可组合多个变量
+            - 也可引用系统变量
+          
+          - 可使用的变量类型:
+            - string: 字符串
+            - number: 数值
+            - object: 对象
+            - array: 数组
+            - arrayString: 字符串数组
+            - arrayNumber: 数值数组
+            ※ 不支持arrayObject
+
+          - 连接:
+            - 前段: 可从所有节点类型连接
+            - 后段: 可连接到所有节点类型
+            - 在聊天模式下有特殊行为
+
+      16. 参数提取节点
+          使用场景:
+          - 从文本中提取结构化数据
+          - 解析用户输入
+          - 信息的分类和整理
+          - 用于条件分支的输入解析
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: parameter-extractor（固定）
+          - data:
+            - title: 节点标题（必填）
+            - query: 指定输入变量（必填）
+            - model: 模型设置（必填）
+            - reasoning_mode: 推理模式（必填）
+            - parameters: 参数定义（必填）
+            - instruction: 提示词（必填）
+            - memory: 内存设置（可选）
+            - vision: 图像处理设置（可选）
+
+          参数类型:
+          - string: 字符串类型
+          - number: 数值类型
+          - bool: 布尔值类型
+          - select: 选择类型（options必填）
+          - array[string]: 字符串数组类型
+          - array[number]: 数值数组类型
+          - array[object]: 对象数组类型
+
+          推理模式:
+          - prompt: 
+            - 基于提示词的提取
+            - 可灵活定义提取规则
+          - function_call:
+            - 基于函数调用
+            - 更结构化的提取
+
+          输出变量:
+          - [参数名]: 各参数的提取结果
+          - __is_success: 提取成功标志（0/1）
+          - __reason: 错误原因（发生错误时）
+
+          注意事项:
+          - 参数名必须唯一
+          - 必填参数必须提取
+          - 提示词需清楚描述提取规则
+          - 图像处理仅可用于支持的模型
+
+      17. YouTube字幕节点
+          使用场景:
+          - 获取YouTube视频的字幕
+          - 将音频内容转换为文本
+          - 多语言内容的翻译辅助
+          - 分析和摘要视频内容
+
+          结构:
+          - id: 唯一ID（必填）
+          - data:
+              type: tool（固定）
+              title: Free YouTube Transcript API
+              provider_name: transcript（固定）
+              provider_id: transcript（固定）
+              provider_type: builtin（固定）
+              tool_label: Free YouTube Transcript API
+              tool_name: free_youtube_transcript（固定）
+              tool_configurations:
+                cookies: null
+                format: text（固定）
+                language: ja  # 语言代码
+                preserve_formatting: 0  # 保留格式
+                proxy: null
+              tool_parameters:
+                video_id:
+                  type: mixed（固定）
+                  value: YouTube视频ID或变量引用
+              outputs:
+                text:  # 字幕文本的输出变量
+                  type: string
+
+          注意事项:
+          - video_id可用以下格式指定:
+            - 直接指定: 'XLzul_7GPs4'
+            - 变量引用: '{{#[输入节点ID].[变量名]#}}'
+          - language设置:
+            - ja: 日语
+            - en: 英语
+          - preserve_formatting:
+            - 0: 去除格式（推荐）
+            - 1: 保留原文格式
+          - 输出变量:
+            - text: 获取的字幕文本（string类型）
+
+      18. JinaReader节点
+          使用场景:
+          - 从网页提取文本
+          - 内容抓取
+          - 网络文章摘要
+          - 收集图像和链接
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: tool（固定）
+          - data:
+              title: 节点标题（必填）
+              provider_name: jina（固定）
+              provider_id: jina（固定）
+              provider_type: builtin（固定）
+              tool_label: JinaReader（固定）
+              tool_name: jina_reader（固定）
+              tool_configurations:
+                gather_all_images_at_the_end: 0/1  # 图像收集
+                gather_all_links_at_the_end: 0/1   # 链接收集
+                image_caption: 0/1                 # 图像说明
+                no_cache: 0/1                      # 缓存设置
+                proxy_server: 代理URL              # 代理设置
+                summary: 0/1                       # 摘要功能
+                target_selector: CSS选择器         # 提取特定元素
+                wait_for_selector: CSS选择器       # 等待元素
+              tool_parameters:
+                url:
+                  type: mixed（固定）
+                  value: URL字符串或变量引用
+              outputs:
+                text:
+                  type: string
+
+          注意事项:
+          - URL输入:
+            - 直接指定: 'https://example.com'
+            - 变量引用: '{{#[输入节点ID].[变量名]#}}'
+          
+          - 设置选项:
+            - gather_all_images_at_the_end: 批量收集图像
+            - gather_all_links_at_the_end: 批量收集链接
+            - image_caption: 获取图像说明
+            - summary: 内容自动摘要
+            - target_selector: 提取特定DOM元素
+          
+          - 代理设置:
+            - 应对访问受限的网站
+            - 绕过地区限制
+            - 负载均衡
+
+          - 缓存控制:
+            - no_cache: 1时禁用缓存
+            - 始终获取最新内容
+
+      19. TavilySearch节点
+          使用场景:
+          - 执行网络搜索
+          - 信息收集
+          - 内容调研
+          - 指定域名搜索
+
+          结构:
+          - id: 唯一ID（必填）
+          - type: tool（固定）
+          - data:
+              title: 节点标题（必填）
+              provider_name: tavily（固定）
+              provider_id: tavily（固定）
+              provider_type: builtin（固定）
+              tool_label: TavilySearch（固定）
+              tool_name: tavily_search（固定）
+              tool_configurations:
+                exclude_domains: 排除的域名列表    # 可选
+                include_domains: 包含的域名列表    # 可选
+                include_answer: true/false         # 包含回答
+                include_images: true/false         # 包含图像
+                include_raw_content: true/false    # 原始内容
+                max_results: 搜索结果数（1-10）    # 必填
+                search_depth: basic/advanced       # 搜索深度
+              tool_parameters:
+                query:
+                  type: mixed（固定）
+                  value: 搜索查询或变量引用
+
+          注意事项:
+          - 搜索查询:
+            - 直接指定: '要搜索的关键词'
+            - 变量引用: '{{#[输入节点ID].[变量名]#}}'
+          
+          - 搜索深度:
+            - basic: 基础搜索（高速）
+            - advanced: 详细搜索（更多结果）
+          
+          - 域名控制:
+            - exclude_domains: 从搜索中排除的域名
+            - include_domains: 搜索目标的域名
+          
+          - 结果控制:
+            - max_results: 获取的搜索结果数量
+            - include_answer: 获取相关回答
+            - include_images: 获取相关图像
+            - include_raw_content: 未加工内容
+          - 与下一节点的连接:
+            - 从搜索结果获取URL时，请使用参数提取节点
+
+      ══ 多模式生成约束（v2.0.0新增）══
+
+      【结构约束】
+      - workflow / advanced-chat：必须有 workflow.graph.nodes 和 workflow.graph.edges
+      - chat / completion / agent-chat：不能有 workflow 字段，只有 model_config
+      - advanced-chat：终止节点必须是 answer（流式输出），不能用 end
+      - workflow：终止节点必须是 end，不能用 answer
+      - completion：model.mode 必须是 completion，其余所有模式 model.mode 均为 chat
+      - completion：用 user_input_form 定义输入字段，不在节点中定义 variables
+      - agent-chat：model_config.agent_mode.enabled 必须为 true
+
+      【触发器约束】
+      - start 与 trigger-* 不能共存，只能选其一作为入口节点
+      - trigger-schedule：没有 variables 字段，下游只能引用 trigger_time / timestamp
+      - trigger-webhook：没有 variables 字段，下游引用 body / headers / method / query
+      - trigger-plugin：输出变量由插件定义，通用占位用 content
+
+      【advanced-chat 特有约束】
+      - LLM 节点必须配置 memory 字段（包含 role_prefix 和 window）
+      - start 节点的 variables 通常为空列表（对话输入来自系统 sys.query）
+      - 不能使用 end 节点，必须用 answer 节点流式输出
+
+      【节点ID约束（所有模式通用）】
+      - 节点ID必须唯一
+      - 节点ID必须以1700000000000开头
+      - 节点ID范围：1700000000000 ~ 1799999999999
+
+    output_format: |
+      根据 step0~step2 的判断，从以下11种模板中选择对应结构生成完整 YAML。
+      每次生成请在 YAML 第一行写注释说明所选模板，如：
+      # [mode: workflow] [trigger: start]
+
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  A类：workflow 模式（有节点图，end 节点终止）                   ║
+      ╚══════════════════════════════════════════════════════════════╝
+
+      ── [A1] workflow + start（最常用，用户手动触发）──
+      ```yaml
+      # [mode: workflow] [trigger: start]
+      app:
+        mode: workflow
+        name: [工作流名称]
+        version: 0.1.3
+
+      workflow:
+        graph:
+          edges:
+            # IF/ELSE分支的边示例
+            - source: [IF/ELSE节点ID]
+              target: [目标节点ID]
+              data:
+                sourceType: if-else
+                targetType: [目标节点类型]
+              sourceHandle: 'true'  # IF条件成立时
+            - source: [IF/ELSE节点ID]
+              target: [另一个目标节点ID]
+              data:
+                sourceType: if-else
+                targetType: [目标节点类型]
+              sourceHandle: 'false'  # ELSE条件时
+
+          nodes:
+            - id: [开始节点ID]
+              data:
+                type: start
+                title: 开始
+                variables:
+                  # 文件输入的示例
+                  - type: file
+                    variable: input_document
+                    label: 文档
+                    required: true
+                    max_length: 48
+                    allowed_file_types:
+                      - document
+                    allowed_file_upload_methods:
+                      - local_file
+                      - remote_url
+
+                  # 其他输入类型
+                  - type: text-input
+                    variable: [变量名]
+                    type: string/number
+                    label: [输入字段的标签]
+                    required: true
+                    max_length: [最大字数]
+
+            - id: [LLM节点ID]
+              data:
+                type: llm
+                title: LLM
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                prompt_template:
+                  - id: [提示词ID]
+                    role: system
+                    text: '[提示词文本]'
+                context:
+                  enabled: false  # 无知识库节点时设为 false，variable_selector 设为 []
+                  variable_selector: []
+                  # 若上游有 knowledge-retrieval 节点，则改为：
+                  # enabled: true
+                  # variable_selector:
+                  #   - [knowledge-retrieval节点ID]
+                  #   - result
+                vision:
+                  enabled: false
+            - id: [结束节点ID]
+              data:
+                type: end
+                title: 结束
+                outputs:
+                  - value_selector:
+                      - [开始节点ID]
+                      - [变量名]
+                    variable: inputData
+                  - value_selector:
+                      - [LLM节点ID]
+                      - text
+                    variable: generatedText
+
+            - id: [HTTP请求节点ID]
+              data:
+                type: http-request
+                authorization:
+                  config: null
+                  type: no-auth  # 或所需的认证类型
+                body:
+                  type: json
+                  data:
+                    - id: [键值ID]
+                      key: ''
+                      type: text
+                      value: |
+                        {
+                          "key1": "{{#[开始节点ID].[变量名]#}}",
+                          "key2": "值2"
+                        }
+                headers: Content-Type:application/json
+                method: post
+                url: [API端点URL]
+                timeout:
+                  max_connect_timeout: 0
+                  max_read_timeout: 0
+                  max_write_timeout: 0
+                title: HTTP请求
+                variables: []
+
+            - id: [JSON解析节点ID]
+              data:
+                type: tool
+                desc: ''
+                provider_id: json_process
+                provider_name: json_process
+                provider_type: builtin
+                selected: false
+                title: JSON Parse
+                tool_configurations:
+                  ensure_ascii: 1
+                tool_label: JSON Parse
+                tool_name: parse
+                tool_parameters:
+                  content:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'
+                  json_filter:
+                    type: mixed
+                    value: [要提取的JSON键]
+
+            - id: [问题分类器节点ID]
+              data:
+                type: question-classifier
+                title: 问题分类器
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                query_variable_selector:
+                  - [输入节点ID]
+                  - [变量名]
+                classes:
+                  - id: '1'
+                    name: [分类名1]
+                  - id: '2'
+                    name: [分类名2]
+
+            - id: [知识获取节点ID]
+              data:
+                type: knowledge-retrieval
+                title: 知识获取
+                dataset_ids:
+                  - [数据集ID]
+                retrieval_mode: multiple
+                multiple_retrieval_config:
+                  reranking_enable: true
+                  reranking_mode: weighted_score
+                  top_k: 4
+                  weights:
+                    vector_setting:
+                      embedding_model_name: text-embedding-3-large
+                      embedding_provider_name: openai
+                      vector_weight: 1
+                    keyword_setting:
+                      keyword_weight: 0
+                query_variable_selector:
+                  - [输入节点ID]
+                  - [变量名]
+
+            - id: [代码节点ID]
+              data:
+                type: code
+                code_language: python3
+                code: # Python程序的字符串
+                outputs:  # 输出变量的定义（必填）
+                  task_url:  # 变量名
+                    children: null
+                    type: string  # 指定上述定义的类型之一
+                variables:  # 输入变量的定义（必填）
+                  - value_selector:  # 来自其他节点的输入
+                    - [输入节点ID]
+                    - [变量名]
+                    variable: arg1  # 函数的参数名
+
+            - id: [IF/ELSE节点ID]
+              data:
+                type: if-else
+                title: 条件分支
+                cases:
+                  - case_id: 'true'
+                    logical_operator: and
+                    conditions:
+                      - id: [条件ID]
+                        varType: [number/string/boolean]
+                        variable_selector:
+                          - [输入节点ID]
+                          - [变量名]
+                        comparison_operator: [比较运算符]
+                        value: [比较值]
+                        numberVarType: [constant/variable]  # 数值类型时
+                      - id: [条件ID2]
+                        varType: [变量类型]
+                        key: [子变量键]  # 可选
+                        comparison_operator: [比较运算符]
+                        value: [比较值]
+                        sub_variable_condition:  # 可选
+                          case_id: [子条件ID]
+                          logical_operator: and
+                          conditions:
+                            - id: [子条件ID]
+                              varType: [变量类型]
+                              comparison_operator: [比较运算符]
+                              value: [比较值]
+
+            - id: [变量聚合器节点]
+              data:
+                type: variable-aggregator
+                title: 变量聚合器
+                output_type: string  # 或 number/boolean
+                variables:
+                  - - [输入节点ID1]
+                    - [变量名1]
+                  - - [输入节点ID2]
+                    - [变量名2]
+
+            - id: [文档提取器节点ID]
+              data:
+                type: document-extractor
+                title: 文本提取工具
+                is_array_file: false
+                variable_selector:
+                  - [输入节点ID]
+                  - [变量名]
+            - id: [模板节点ID]
+              data:
+                type: template-transform
+                title: 模板转换
+                template: |
+                  你好，{{ user_name }}！
+                  你的得分是{{ score }}分。
+                  {% if score >= 80 %}
+                  合格！恭喜你。
+                  {% else %}
+                  很遗憾，不合格。
+                  {% endif %}
+                variables:
+                  - value_selector:
+                      - [输入节点ID]
+                      - user_name
+                    variable: user_name
+                  - value_selector:
+                      - [输入节点ID]
+                      - score
+                    variable: score
+            - id: [响应节点ID]
+              data:
+                type: answer
+                title: 响应输出
+                answer: |
+                  {{#[LLM节点ID].text#}}
+                variables: []
+            - id: [参数提取节点ID]
+              data:
+                type: parameter-extractor
+                title: 参数提取
+                query:
+                  - [输入节点ID]
+                  - [变量名]
+                model:
+                  provider: [提供商名称]
+                  name: [模型名称]
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                reasoning_mode: prompt
+                parameters:
+                  - name: [参数名]
+                    type: string/number/bool/select/array[string]/array[number]/array[object]
+                    description: [说明文]
+                    required: true/false
+                    options: # 仅select类型时
+                      - [选项1]
+                      - [选项2]
+                instruction: |
+                  [提示词字符串]
+                memory:
+                  role_prefix:
+                    user: [用户前缀]
+                    assistant: [助手前缀]
+                vision:
+                  enabled: false
+                  configs: {}
+            - id: [YouTube字幕节点ID]
+              data:
+                type: tool
+                title: Free YouTube Transcript API
+                provider_name: transcript
+                provider_id: transcript
+                provider_type: builtin
+                tool_label: Free YouTube Transcript API
+                tool_name: free_youtube_transcript
+                tool_configurations:
+                  cookies: null
+                  format: text
+                  language: ja
+                  preserve_formatting: 0
+                  proxy: null
+                tool_parameters:
+                  video_id:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'
+                outputs:
+                  text:
+                    type: string
+            - id: [JinaReader节点ID]
+              data:
+                type: tool
+                title: JinaReader
+                provider_name: jina
+                provider_id: jina
+                provider_type: builtin
+                tool_label: JinaReader
+                tool_name: jina_reader
+                tool_configurations:
+                  gather_all_images_at_the_end: 0  # 图像收集设置
+                  gather_all_links_at_the_end: 0   # 链接收集设置
+                  image_caption: 0                 # 图像说明设置
+                  no_cache: 0                      # 禁用缓存
+                  proxy_server: null               # 代理服务器设置
+                  summary: 0                       # 摘要功能
+                  target_selector: null            # 目标元素选择器
+                  wait_for_selector: null          # 等待元素选择器
+                tool_parameters:
+                  url:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'  # URL输入
+                outputs:
+                  text:
+                    type: string
+            - id: [TavilySearch节点ID]
+              data:
+                type: tool
+                title: TavilySearch
+                provider_name: tavily
+                provider_id: tavily
+                provider_type: builtin
+                tool_label: TavilySearch
+                tool_name: tavily_search
+                tool_configurations:
+                  exclude_domains: null      # 排除域名
+                  include_domains: null      # 包含域名
+                  include_answer: null       # 包含回答
+                  include_images: null       # 包含图像
+                  include_raw_content: null  # 包含原始内容
+                  max_results: 3             # 最大结果数
+                  search_depth: basic        # 搜索深度
+                tool_parameters:
+                  query:
+                    type: mixed
+                    value: '{{#[输入节点ID].[变量名]#}}'
+                outputs:
+                  text:
+                    type: string
+      ```
+
+      ── [A2] workflow + trigger-schedule（定时自动执行）──
+      ```yaml
+      # [mode: workflow] [trigger: trigger-schedule]
+      app:
+        mode: workflow
+        name: [定时工作流名称]
+        version: 0.1.3
+
+      workflow:
+        graph:
+          edges:
+            - source: "1700000000001"
+              target: "1700000000002"
+              data:
+                sourceType: trigger-schedule
+                targetType: llm
+            - source: "1700000000002"
+              target: "1700000000003"
+              data:
+                sourceType: llm
+                targetType: end
+
+          nodes:
+            - id: "1700000000001"
+              data:
+                type: trigger-schedule
+                title: 定时触发
+                cron: "0 9 * * 1-5"       # 工作日9点执行
+                timezone: Asia/Shanghai
+
+            - id: "1700000000002"
+              data:
+                type: llm
+                title: LLM处理
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                prompt_template:
+                  - id: prompt1
+                    role: system
+                    text: '当前触发时间: {{#1700000000001.trigger_time#}}，请执行以下任务：[任务描述]'
+                context:
+                  enabled: false
+                  variable_selector: []
+                vision:
+                  enabled: false
+
+            - id: "1700000000003"
+              data:
+                type: end
+                title: 结束
+                outputs:
+                  - value_selector:
+                      - "1700000000002"
+                      - text
+                    variable: result
+                    value_type: string
+      ```
+
+      ── [A3] workflow + trigger-webhook（外部HTTP请求触发）──
+      ```yaml
+      # [mode: workflow] [trigger: trigger-webhook]
+      app:
+        mode: workflow
+        name: [Webhook工作流名称]
+        version: 0.1.3
+
+      workflow:
+        graph:
+          edges:
+            - source: "1700000000001"
+              target: "1700000000002"
+              data:
+                sourceType: trigger-webhook
+                targetType: code
+            - source: "1700000000002"
+              target: "1700000000003"
+              data:
+                sourceType: code
+                targetType: llm
+            - source: "1700000000003"
+              target: "1700000000004"
+              data:
+                sourceType: llm
+                targetType: end
+
+          nodes:
+            - id: "1700000000001"
+              data:
+                type: trigger-webhook
+                title: Webhook触发
+                method: post    # get | post | any
+
+            - id: "1700000000002"
+              data:
+                type: code
+                title: 解析请求体
+                code_language: python3
+                code: "def main(body: dict) -> dict:\n    content = body.get('content', '')\n    return {\"parsed\": content}"
+                variables:
+                  - value_selector:
+                      - "1700000000001"
+                      - body
+                    variable: body
+                outputs:
+                  parsed:
+                    type: string
+                    children: null
+
+            - id: "1700000000003"
+              data:
+                type: llm
+                title: LLM处理
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                prompt_template:
+                  - id: prompt1
+                    role: system
+                    text: '请处理以下内容：{{#1700000000002.parsed#}}'
+                context:
+                  enabled: false
+                  variable_selector: []
+                vision:
+                  enabled: false
+
+            - id: "1700000000004"
+              data:
+                type: end
+                title: 结束
+                outputs:
+                  - value_selector:
+                      - "1700000000003"
+                      - text
+                    variable: result
+                    value_type: string
+      ```
+
+      ── [A4] workflow + trigger-plugin（插件事件触发）──
+      ```yaml
+      # [mode: workflow] [trigger: trigger-plugin]
+      app:
+        mode: workflow
+        name: [插件触发工作流名称]
+        version: 0.1.3
+
+      workflow:
+        graph:
+          edges:
+            - source: "1700000000001"
+              target: "1700000000002"
+              data:
+                sourceType: trigger-plugin
+                targetType: llm
+            - source: "1700000000002"
+              target: "1700000000003"
+              data:
+                sourceType: llm
+                targetType: end
+
+          nodes:
+            - id: "1700000000001"
+              data:
+                type: trigger-plugin
+                title: 插件触发
+                plugin_id: langgenius/email/email   # 替换为实际插件ID
+                event: email_received               # 替换为实际事件名
+
+            - id: "1700000000002"
+              data:
+                type: llm
+                title: LLM处理
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                prompt_template:
+                  - id: prompt1
+                    role: system
+                    text: '请处理以下插件事件内容：{{#1700000000001.content#}}'
+                context:
+                  enabled: false
+                  variable_selector: []
+                vision:
+                  enabled: false
+
+            - id: "1700000000003"
+              data:
+                type: end
+                title: 结束
+                outputs:
+                  - value_selector:
+                      - "1700000000002"
+                      - text
+                    variable: result
+                    value_type: string
+      ```
+
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  B类：advanced-chat 模式（有节点图，answer 节点流式输出）        ║
+      ╚══════════════════════════════════════════════════════════════╝
+
+      ── [B1] advanced-chat + start（多轮对话+复杂节点，最常用）──
+      ```yaml
+      # [mode: advanced-chat] [trigger: start]
+      app:
+        mode: advanced-chat
+        name: [Chatflow应用名称]
+        version: 0.1.3
+
+      workflow:
+        graph:
+          edges:
+            - source: "1700000000001"
+              target: "1700000000002"
+              data:
+                sourceType: start
+                targetType: llm
+            - source: "1700000000002"
+              target: "1700000000003"
+              data:
+                sourceType: llm
+                targetType: answer
+
+          nodes:
+            - id: "1700000000001"
+              data:
+                type: start
+                title: 开始
+                variables: []    # advanced-chat 输入来自对话，通常为空
+
+            - id: "1700000000002"
+              data:
+                type: llm
+                title: LLM
+                model:
+                  provider: openai
+                  name: gpt-5.4
+                  mode: chat
+                  completion_params:
+                    temperature: 0.7
+                prompt_template:
+                  - id: prompt1
+                    role: system
+                    text: '你是一个[角色描述]助手，请根据用户输入给出回答。'
+                context:
+                  enabled: false
+                  variable_selector: []
+                memory:                      # ← advanced-chat 必须配置 memory
+                  role_prefix:
+                    user: Human
+                    assistant: Assistant
+                  window:
+                    enabled: false
+                    size: 10
+                  query_prompt_template: '{{#sys.query#}}'
+                vision:
+                  enabled: false
+
+            - id: "1700000000003"
+              data:
+                type: answer               # ← advanced-chat 用 answer，不用 end
+                title: 回复
+                answer: '{{#1700000000002.text#}}'
+                variables: []
+      ```
+
+      ── [B2] advanced-chat + trigger-schedule ──
+      ── [B3] advanced-chat + trigger-webhook  ──
+      ── [B4] advanced-chat + trigger-plugin   ──
+      （B2~B4 结构同 B1，将 start 节点替换为对应 trigger-* 节点，answer 节点保留不变）
+
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  C类：无节点图模式（直接生成顶层应用配置）                        ║
+      ╚══════════════════════════════════════════════════════════════╝
+
+      ── [C1] chat（简单多轮对话，只需提示词）──
+      ```yaml
+      # [mode: chat]
+      app:
+        mode: chat
+        name: [对话应用名称]
+        version: 0.1.3
+      kind: app
+      model_config:
+        model:
+          provider: openai
+          name: gpt-5.4
+          mode: chat
+          completion_params:
+            temperature: 0.7
+        pre_prompt: |
+          你是一个[角色描述]。
+          [具体行为要求和回答规范]
+        opening_statement: 你好！请问有什么可以帮助你的？
+        suggested_questions:
+          - 推荐问题示例1
+          - 推荐问题示例2
+        suggested_questions_after_answer:
+          enabled: false
+      ```
+
+      ── [C2] completion（一次性表单填写式文本生成）──
+      ```yaml
+      # [mode: completion]
+      app:
+        mode: completion
+        name: [文本生成应用名称]
+        version: 0.1.3
+      kind: app
+      model_config:
+        model:
+          provider: openai
+          name: gpt-5.4
+          mode: completion          # ← completion模式固定用completion
+          completion_params:
+            temperature: 0.7
+            max_tokens: 2000
+        pre_prompt: |
+          请根据以下信息生成[目标内容]：
+          [字段1标签]：{{variable1}}
+          [字段2标签]：{{variable2}}
+        user_input_form:            # ← completion专有，定义用户表单
+          - text-input:
+              label: 字段1标签
+              variable: variable1
+              required: true
+              max_length: 200
+          - paragraph:
+              label: 字段2标签
+              variable: variable2
+              required: true
+      ```
+
+      ── [C3] agent-chat（Agent自主工具调用）──
+      ```yaml
+      # [mode: agent-chat]
+      app:
+        mode: agent-chat
+        name: [Agent应用名称]
+        version: 0.1.3
+      kind: app
+      model_config:
+        model:
+          provider: openai
+          name: gpt-5.4
+          mode: chat
+          completion_params:
+            temperature: 0.7
+        agent_mode:
+          enabled: true
+          strategy: function_call   # function_call | react
+          max_iteration: 5
+          tools:
+            - provider_type: builtin
+              provider_id: langgenius/google/google
+              tool_name: google_search
+              enabled: true
+              config: {}
+        pre_prompt: |
+          你是一个智能助手，可以使用以下工具完成用户任务：
+          - 网络搜索：查找最新信息
+          请根据用户需求自主选择并使用工具完成任务。
+      ```
